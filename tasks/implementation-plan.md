@@ -4,17 +4,17 @@ Work on one task at a time. Maintain this file with actual status and evidence. 
 
 ## Actual status — October 3, 2026
 
-LAB-001 is implemented and verified. Local build, five image builds, Identity login, database permissions,
-TLS, encrypted key persistence, and stop/start persistence were verified (see `docs/evidence/LAB-001.md` and
-`docs/evidence/LAB-001-review.md`).
-- Browser automation is marked NOT VERIFIED (environmental sandbox limitation); HTTP evidence is preserved. Immediate follow-up is manual smoke testing; automated interactive-circuit and multi-user isolation testing are deferred to LAB-007.
+LAB-001 is complete and fully verified. Local build, five image builds, Identity login, database permissions,
+TLS, encrypted key persistence, stop/start persistence, and operator manual browser testing were verified
+(see `docs/evidence/LAB-001.md` and `docs/evidence/LAB-001-review.md`).
+- Manual browser smoke testing (TLS trust, Alice login, interactive Account circuit, access denial on `/admin`, CSRF logout & cookie deletion, Admin login) was confirmed by the operator.
+- Automated multi-user circuit isolation (AC-26) and browser UI E2E testing remain scheduled for LAB-007.
 - Gateway rate limiter client partitioning is non-blocking for LAB-001 and deferred to LAB-007/008 (conditional on upstream ingress/ALB topology).
-- Neither item blocks proceeding to LAB-002.
 LAB-002..009 remain pending. No learning topic is marked mastered; no AWS resources were deployed.
 
 | ID | Work | Depends on | Exit criterion |
 |---|---|---|---|
-| LAB-001 | .NET10 scaffold, PostgreSQL/ElasticMQ Compose, schema/role bootstrap, local HTTPS, Identity users, login/layout UI | — | Build, login, tested DB permissions, base images; review passed (deferred browser & proxy items) |
+| LAB-001 | .NET10 scaffold, PostgreSQL/ElasticMQ Compose, schema/role bootstrap, local HTTPS, Identity users, login/layout UI | — | Completed & verified: build, login, tested DB permissions, base images, manual smoke test |
 | LAB-002 | Catalog CRUD/sessions, quotes, atomic inventory, contracts | 001 | API and AC-04/17; basic catalog/admin UI |
 | LAB-003 | Idempotent Reservations creation and state/timeline; Outbox/Inbox/SQS adapter without shared domain | 002 | AC-03/07/08/09 and quote 503; reservations UI |
 | LAB-004 | Durable fake Payments, operations/reconciliation; successful hold→pay→confirm Saga; fake Notifications | 003 | AC-02/05/10/24; payments/notifications UI |

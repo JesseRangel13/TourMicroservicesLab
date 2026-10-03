@@ -73,8 +73,8 @@ Neither the deferred rate-limiter ingress consideration nor the browser-automati
 - **Reason**: The Windows browser/computer-use automation helper failed to initialize due to a local sandbox permission error (`windows sandbox failed: helper_unknown_error: apply deny-read ACLs`).
 - **Nature**: This is an environmental verification limitation, **not** a confirmed application defect.
 - **Evidence Boundary**: HTTP tests verified SSR form markup, anti-CSRF cookies, redirect behavior, and rendered account HTML. This evidence is preserved as valid HTTP-level verification, but is not treated as proof of interactive Blazor circuit establishment or multi-user DOM state handling.
-- **Immediate Follow-up**: Manual smoke testing of login, navigation, and logout at `https://localhost:8443` following execution of `scripts/Trust-LocalCa.ps1`. (Manual checks remain uncompleted until actual operator results are recorded).
-- **Formal Verification Follow-up**: Automated interactive-circuit establishment, multi-user circuit isolation (AC-26), and browser UI E2E are scheduled for implementation and verification in **LAB-007**.
+- **Immediate Follow-up**: **COMPLETED & VERIFIED**. Manual smoke testing of login, navigation, role authorization, and logout was executed and confirmed by the operator on October 3, 2026.
+- **Formal Automated Follow-up**: Automated interactive-circuit establishment, multi-user circuit isolation (AC-26), and browser UI E2E are scheduled for implementation and verification in **LAB-007**.
 
 ---
 
