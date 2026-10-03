@@ -19,6 +19,11 @@ builder.Services.AddAuthentication(o =>
     o.DefaultSignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ExternalScheme;
 });
 builder.Services.AddSingleton<JwtIssuer>();
+builder.Services.AddOptions<Gateway.Web.Catalog.GatewayApiOptions>().BindConfiguration("GatewayApi")
+    .Validate(o => Uri.TryCreate(o.BaseAddress, UriKind.Absolute, out var uri) && uri.Scheme == "https", "HTTPS Gateway API address required.").ValidateOnStart();
+builder.Services.AddHttpClient("GatewayApi", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
+builder.Services.AddScoped<Gateway.Web.Catalog.CatalogClient>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, LabRevalidatingAuthenticationStateProvider>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(o => o.DetailedErrors = false);

@@ -1,0 +1,21 @@
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Catalog.CatalogClient Catalog
+<fieldset disabled="@Busy">
+    <legend>@Session.StartsAtUtc.ToString("u")</legend>
+    <p>Available @Session.AvailableSeats / @Session.Capacity; version @Session.Version; price version @Session.PriceVersion</p>
+    <label>Unit price (MXN cents) <input type="number" min="1" @bind="amount" /></label>
+    <button @onclick="SavePrice">Save price</button>
+    <label>Capacity <input type="number" min="0" @bind="capacity" /></label>
+    <button @onclick="SaveCapacity">Save capacity</button>
+    @if (Busy) { <p role="status">Saving…</p> }
+    @if (Error is not null) { <p role="alert">@Error</p> }
+    @if (Success is not null) { <p role="status">@Success</p> }
+</fieldset>
+@code {
+    [Parameter, EditorRequired] public Shared.Contracts.SessionView Session { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private long amount; private int capacity;
+    protected override void OnParametersSet() { amount = Session.UnitAmountMinor; capacity = Session.Capacity; }
+    private Task SavePrice() => RunAsync(async ct => { await Catalog.PriceAsync(Session.Id, new(amount, Session.Version), ct); await Changed.InvokeAsync(); Success = "Price saved; publication intent persisted."; });
+    private Task SaveCapacity() => RunAsync(async ct => { await Catalog.CapacityAsync(Session.Id, new(capacity, Session.Version), ct); await Changed.InvokeAsync(); Success = "Capacity saved."; });
+}

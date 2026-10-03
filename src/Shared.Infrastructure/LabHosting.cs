@@ -37,7 +37,7 @@ public static class LabHosting
         builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics", LogLevel.None);
         builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
         {
-            c.ProblemDetails.Extensions["code"] = c.ProblemDetails.Status == 500 ? "UnexpectedError" : "HttpError";
+            c.ProblemDetails.Extensions.TryAdd("code", c.ProblemDetails.Status == 500 ? "UnexpectedError" : "HttpError");
             c.ProblemDetails.Extensions["traceId"] = Activity.Current?.Id ?? c.HttpContext.TraceIdentifier;
         });
         builder.Services.AddExceptionHandler<SafeExceptionHandler>();

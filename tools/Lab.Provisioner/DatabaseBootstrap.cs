@@ -1,4 +1,5 @@
 using Gateway.Web.Identity;
+using Catalog.Api.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,7 +72,15 @@ public static class DatabaseBootstrap
                 if (!await users.IsInRoleAsync(user, seed.Role)) Ensure(await users.AddToRoleAsync(user, seed.Role));
             }
         }
-        Console.WriteLine("Schemas/roles provisioned, Identity migrated, and users seeded without resetting existing data.");
+        var catalogMigration = new DbContextOptionsBuilder<CatalogDb>().UseNpgsql(
+            LocalConfiguration.Connection("localhost", "catalog_migrator", settings.MigrationPasswords["catalog"], certDir),
+            o => o.MigrationsHistoryTable("__EFMigrationsHistory", "catalog")).Options;
+        await using (var db = new CatalogDb(catalogMigration)) await db.Database.MigrateAsync(ct);
+        await ExecuteAsync(admin, "REVOKE ALL ON catalog.\"__EFMigrationsHistory\" FROM catalog_runtime;", ct);
+        var catalogRuntime = new DbContextOptionsBuilder<CatalogDb>().UseNpgsql(
+            LocalConfiguration.Connection("localhost", "catalog_runtime", settings.RuntimePasswords["catalog"], certDir)).Options;
+        await using (var db = new CatalogDb(catalogRuntime)) await CatalogSeed.RunAsync(db, ct);
+        Console.WriteLine("Schemas/roles provisioned, Identity and Catalog migrated, and samples seeded without resetting existing data.");
     }
     private static void Ensure(IdentityResult result)
     {

@@ -1,0 +1,24 @@
+@page "/tours/{Id:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Catalog.CatalogClient Catalog
+<a href="/tours">Back to search</a>
+@if (Busy) { <p role="status">Loading…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@if (tour is not null)
+{
+    <h1>@tour.Name</h1><p>@tour.Description</p><p>@(tour.Active ? "Active" : "Inactive")</p>
+    <AuthorizeView Roles="Admin"><a href="@($"/admin/catalog/{Id}")">Edit tour and sessions</a></AuthorizeView>
+    <table><thead><tr><th>Departure (UTC)</th><th>Unit price (MXN)</th><th>Available / capacity</th></tr></thead>
+    <tbody>@foreach (var session in sessions) { <tr><td>@session.StartsAtUtc.ToString("u")</td><td>@((session.UnitAmountMinor / 100m).ToString("0.00"))</td><td>@session.AvailableSeats / @session.Capacity</td></tr> }</tbody></table>
+    <p>Reservation submission is pending LAB-003.</p>
+}
+<button disabled="@Busy" @onclick="Load">Reload</button>
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Shared.Contracts.TourView? tour;
+    private Shared.Contracts.SessionView[] sessions = [];
+    protected override Task OnParametersSetAsync() => Load();
+    private Task Load() => RunAsync(async ct => { tour = await Catalog.DetailAsync(Id, ct); sessions = await Catalog.SessionsAsync(Id, ct); });
+}

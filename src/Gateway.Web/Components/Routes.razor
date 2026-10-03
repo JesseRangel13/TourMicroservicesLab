@@ -1,6 +1,6 @@
 <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+        <AuthorizeRouteView @key="routeData" RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized><p>Sign in with an authorized account. <a href="/login" data-enhance-nav="false">Login</a></p></NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />

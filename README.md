@@ -2,7 +2,9 @@
 
 LAB-001 implements the local foundation: five .NET 10 hosts, PostgreSQL schema isolation,
 durable ElasticMQ storage, HTTPS, Identity, and a basic Blazor Interactive Server account screen.
-Catalog/reservation/payment/notification business operations remain pending LAB-002 onward.
+LAB-002 adds Catalog tours/sessions, service-only quotes, transactional inventory handlers,
+durable publication intents, and basic catalog/admin screens. Reservations, payments, notifications,
+and transport workers remain pending LAB-003 onward.
 The specifications below and in `specs/` remain the source of truth.
 
 ## Run locally on Windows
@@ -51,23 +53,24 @@ revalidation (at most 30 seconds). API JWTs expire after 15 minutes and are stat
 | Payments.Api | 8446 | payments |
 | Notifications.Api | 8447 | notifications |
 
-`Shared.Contracts` contains only a scaffold status DTO. `Shared.Infrastructure` contains hosting,
+`Shared.Contracts` contains HTTP DTOs and versioned Catalog integration payloads. `Shared.Infrastructure` contains hosting,
 JWT validation, safe errors, and validated connection options. It contains no shared domain entities
 or DbContext. `tools/Lab.Provisioner` is a separate local-only one-shot process with privileged
 credentials; none are mounted into hosts. Each runtime role can perform DML only in its own schema,
 has no CREATE privilege, and has a maximum pool size of five. Each schema has its own migrator role.
 
-The provisioner applies the checked-in Identity EF migration before hosts start and seeds users
-idempotently. Business schemas have only a versioned infrastructure baseline (`SchemaVersion`);
-their domain-specific EF migrations arrive with their implementation tasks. Outbox/Inbox tables
-and transport workers arrive in LAB-003; no message processing is claimed in LAB-001.
+The provisioner applies checked-in Identity and Catalog migrations before hosts start and seeds
+users and sample tours idempotently. Other business schemas still have only `SchemaVersion`.
+Catalog owns Tours, Sessions, Quotes, Holds, and a minimal Outbox. Inbox and transport workers
+arrive in LAB-003; no message delivery is claimed in LAB-002.
 Data Protection keys persist encrypted in the identity schema using a dedicated private certificate.
 
 `GET /health/live` requires no identity and no database. `GET /health/ready` requires a valid API
 JWT and checks only the host's owned connection; it is not polled continuously. Business hosts
 expose `/v1/status` (authenticated) and `/v1/admin/status` (Admin only) for scaffold verification.
 YARP forwards `/api/{service}/v1/...` over TLS with JWT authentication. All internal paths are blocked.
-No Catalog quote endpoint or service-to-service JWT issuer is implemented yet.
+Catalog exposes quotes only directly to the dedicated Reservations service identity; Gateway
+returns 404 for internal paths. No service-token issuing HTTP endpoint exists.
 
 ## Checks and debugging
 
@@ -85,6 +88,8 @@ it never purges business queues. It briefly interrupts this local lab, so do not
 Windows curl uses Schannel: `--ssl-revoke-best-effort` tolerates the private CA's absent revocation
 endpoint while preserving certificate/hostname verification. Do not use `-k` or `--insecure`.
 Failure details and actual check results are in `docs/evidence/LAB-001.md`.
+Catalog migration/API/manual UI instructions are in `docs/catalog-execution.md`; LAB-002 results
+are in `docs/evidence/LAB-002.md`.
 To regenerate runtime JSON after a path/config-generator change without rotating passwords/keys:
 `dotnet run --project tools/Lab.Provisioner -- refresh`.
 Use `config/private.example.json` as the secret-free shape reference. Never copy the privileged
@@ -109,7 +114,8 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 ## Objective
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
-The original package contained specifications only. This repository now includes LAB-001; later business workflows and AWS resources remain unimplemented.
+The original package contained specifications only. This repository now includes LAB-001 and LAB-002;
+distributed reservation/payment/notification workflows and AWS resources remain unimplemented.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.

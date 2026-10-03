@@ -2,6 +2,8 @@ param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 if (!(Test-Path '.local/provisioner.json')) { & "$PSScriptRoot/New-LocalConfiguration.ps1" }
+dotnet run --project tools/Lab.Provisioner -- refresh
+if ($LASTEXITCODE -ne 0) { throw 'Private runtime configuration refresh failed.' }
 docker compose up -d --wait postgres
 if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL startup failed.' }
 docker compose up -d elasticmq

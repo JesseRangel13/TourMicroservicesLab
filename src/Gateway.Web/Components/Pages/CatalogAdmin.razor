@@ -1,0 +1,17 @@
+@page "/admin/catalog"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Catalog.CatalogClient Catalog
+@inject NavigationManager Navigation
+<h1>Create tour</h1>
+<label>Name <input @bind="name" maxlength="200" /></label>
+<label>Description <textarea @bind="description" maxlength="4000"></textarea></label>
+<button disabled="@Busy" @onclick="Create">Create</button>
+<p><a href="/tours">Search tours (includes inactive tours for Admin)</a></p>
+@if (Busy) { <p role="status">Saving…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@code {
+    private string name = ""; private string description = "";
+    private Task Create() => RunAsync(async ct => { var tour = await Catalog.CreateAsync(new(name, description), ct); Navigation.NavigateTo($"/admin/catalog/{tour.Id}"); });
+}

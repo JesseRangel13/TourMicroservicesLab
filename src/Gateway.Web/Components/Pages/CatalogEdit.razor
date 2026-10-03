@@ -1,0 +1,36 @@
+@page "/admin/catalog/{Id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Catalog.CatalogClient Catalog
+<h1>Edit catalog</h1>
+<button disabled="@Busy" @onclick="Load">Reload current values</button>
+@if (Busy) { <p role="status">Loading or saving…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@if (Success is not null) { <p role="status">@Success</p> }
+@if (tour is not null)
+{
+    <p>Tour version @tour.Version</p>
+    <label>Name <input @bind="name" maxlength="200" /></label>
+    <label>Description <textarea @bind="description" maxlength="4000"></textarea></label>
+    <label>Active <input type="checkbox" @bind="active" /></label>
+    <button disabled="@Busy" @onclick="SaveTour">Save tour</button>
+    <h2>Add session</h2>
+    <label>Departure in UTC <input type="datetime-local" @bind="starts" /></label>
+    <label>Unit price in minor units (MXN cents) <input type="number" min="1" @bind="amount" /></label>
+    <label>Capacity <input type="number" min="0" @bind="capacity" /></label>
+    <button disabled="@Busy" @onclick="AddSession">Add session</button>
+    <h2>Sessions</h2>
+    @foreach (var session in sessions) { <Gateway.Web.Components.Catalog.SessionEditor @key="session.Id" Session="session" Changed="ReloadSessions" /> }
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Shared.Contracts.TourView? tour; private Shared.Contracts.SessionView[] sessions = [];
+    private string name = ""; private string description = ""; private bool active;
+    private DateTime starts = DateTime.UtcNow.AddDays(7); private long amount = 25000; private int capacity = 12;
+    protected override Task OnParametersSetAsync() => Load();
+    private Task Load() => RunAsync(async ct => { tour = await Catalog.DetailAsync(Id, ct); name = tour.Name; description = tour.Description; active = tour.Active; sessions = await Catalog.SessionsAsync(Id, ct); });
+    private Task SaveTour() => RunAsync(async ct => { tour = await Catalog.UpdateAsync(Id, new(name, description, active, tour!.Version), ct); sessions = await Catalog.SessionsAsync(Id, ct); Success = "Tour saved."; });
+    private Task AddSession() => RunAsync(async ct => { await Catalog.CreateSessionAsync(Id, new(new DateTimeOffset(DateTime.SpecifyKind(starts, DateTimeKind.Utc)), amount, capacity), ct); sessions = await Catalog.SessionsAsync(Id, ct); Success = "Session created."; });
+    private Task ReloadSessions() => RunAsync(async ct => sessions = await Catalog.SessionsAsync(Id, ct));
+}

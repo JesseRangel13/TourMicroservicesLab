@@ -408,6 +408,12 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
+      "catalog.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
+        }
+      },
       "gateway.web": {
         "type": "Project",
         "dependencies": {
@@ -420,6 +426,7 @@
       "lab.provisioner": {
         "type": "Project",
         "dependencies": {
+          "Catalog.Api": "[1.0.0, )",
           "Gateway.Web": "[1.0.0, )"
         }
       },

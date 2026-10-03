@@ -10,12 +10,19 @@ TLS, encrypted key persistence, stop/start persistence, and operator manual brow
 - Manual browser smoke testing (TLS trust, Alice login, interactive Account circuit, access denial on `/admin`, CSRF logout & cookie deletion, Admin login) was confirmed by the operator.
 - Automated multi-user circuit isolation (AC-26) and browser UI E2E testing remain scheduled for LAB-007.
 - Gateway rate limiter client partitioning is non-blocking for LAB-001 and deferred to LAB-007/008 (conditional on upstream ingress/ALB topology).
-LAB-002..009 remain pending. No learning topic is marked mastered; no AWS resources were deployed.
+LAB-002 is complete and verified: Catalog migration/seed, CRUD/session/quote APIs, atomic inventory
+handlers, persisted Outbox intents and Catalog/Admin screens. Build, real PostgreSQL/HTTPS,
+contract, SSR, and stop/start durability checks pass. Independent review verdict is PASS (docs/evidence/LAB-002-review.md).
+- Manual browser testing (tour search/detail, admin CRUD/sessions, inactive tour filtering, VersionConflict handling) was confirmed by the operator.
+- AC-04 and AC-17 are verified at the Catalog layer; full end-to-end multi-service saga checks begin in LAB-003.
+- Automated multi-user circuit isolation (AC-26) remains scheduled for LAB-007.
+See docs/evidence/LAB-002.md and docs/evidence/LAB-002-review.md. LAB-003..009 remain pending. No learning topic is marked mastered;
+no AWS resources were deployed.
 
 | ID | Work | Depends on | Exit criterion |
 |---|---|---|---|
 | LAB-001 | .NET10 scaffold, PostgreSQL/ElasticMQ Compose, schema/role bootstrap, local HTTPS, Identity users, login/layout UI | — | Completed & verified: build, login, tested DB permissions, base images, manual smoke test |
-| LAB-002 | Catalog CRUD/sessions, quotes, atomic inventory, contracts | 001 | API and AC-04/17; basic catalog/admin UI |
+| LAB-002 | Catalog CRUD/sessions, quotes, atomic inventory, contracts | 001 | Completed & verified: CRUD, quotes, atomic inventory, Outbox intents, SSR & manual UI checks |
 | LAB-003 | Idempotent Reservations creation and state/timeline; Outbox/Inbox/SQS adapter without shared domain | 002 | AC-03/07/08/09 and quote 503; reservations UI |
 | LAB-004 | Durable fake Payments, operations/reconciliation; successful hold→pay→confirm Saga; fake Notifications | 003 | AC-02/05/10/24; payments/notifications UI |
 | LAB-005 | Saga compensations, expiration, cancellation, late results, concurrency | 004 | AC-06/11/12/13/14/15/16/22 |

@@ -36,6 +36,7 @@ public sealed class PersistenceTests
         using var before = await client.GetAsync("https://localhost:8443/auth/me");
         Assert.Equal(HttpStatusCode.OK, before.StatusCode);
         var beforeIdentity = await before.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var catalogBefore = await CatalogSnapshotAsync();
         await DockerAsync("stop");
         await DockerAsync("start");
         var alive = false;
@@ -63,6 +64,26 @@ public sealed class PersistenceTests
         await connection.OpenAsync();
         await using var count = new NpgsqlCommand("SELECT COUNT(*) FROM identity.\"AspNetUsers\"", connection);
         Assert.Equal(3L, await count.ExecuteScalarAsync());
+        Assert.Equal(catalogBefore, await CatalogSnapshotAsync());
+    }
+    private static async Task<string> CatalogSnapshotAsync()
+    {
+        var settings = IntegrationTests.Settings;
+        // The test process survives while PostgreSQL stops. Probe with a new physical connection,
+        // rather than reuse a socket from its pre-restart pool; restarted hosts also have fresh pools.
+        var probe = new NpgsqlConnectionStringBuilder(LocalConfiguration.Connection("localhost", "catalog_runtime",
+            settings.RuntimePasswords["catalog"], Path.Combine(IntegrationTests.Root, ".local", "certificates"))) { Pooling = false };
+        await using var connection = new NpgsqlConnection(probe.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT md5(
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Tours" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Sessions" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Quotes" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Holds" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."DeliveryId"),'[]'::jsonb)::text FROM catalog."Outbox" t))
+            """, connection);
+        return (string)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Catalog snapshot missing."));
     }
     private static async Task<XDocument> BrokerAsync(HttpClient client, Dictionary<string, string> values)
     {

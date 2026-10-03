@@ -2,6 +2,8 @@
   "ConnectionStrings": { "Runtime": "<private schema runtime connection; Maximum Pool Size=5>" },
   "Jwt": { "PublicKeyPath": "<public PEM path>", "PrivateKeyPath": "<Gateway only private PEM path>" },
   "DataProtection": { "CertificatePath": "<Gateway only private encryption PFX path>" },
+  "ServiceJwt": { "PublicKeyPath": "<Catalog only Reservations public signing PEM path>" },
+  "GatewayApi": { "BaseAddress": "https://localhost:8443/" },
   "Kestrel": { "Endpoints": { "Https": { "Url": "https://localhost:8443", "Certificate": { "Path": "<private service PFX path>" } } } },
   "AllowedHosts": "localhost;lab.tours.test;gateway.tourlab.internal",
   "LabFeaturesEnabled": false

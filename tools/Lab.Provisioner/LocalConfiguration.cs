@@ -44,6 +44,7 @@ public static class LocalConfiguration
         using var jwt = RSA.Create(3072);
         File.WriteAllText(Path.Combine(certDir, "jwt.key"), jwt.ExportPkcs8PrivateKeyPem());
         File.WriteAllText(Path.Combine(certDir, "jwt.pub"), jwt.ExportSubjectPublicKeyInfoPem());
+        EnsureReservationsKey(certDir);
         var passwords = Schemas.ToDictionary(s => s, _ => NewPassword());
         var migrationPasswords = Schemas.ToDictionary(s => s, _ => NewPassword());
         var adminPassword = NewPassword();
@@ -75,10 +76,12 @@ public static class LocalConfiguration
             ["AllowedHosts"] = $"localhost;127.0.0.1;lab.tours.test;{service};{service}.tourlab.internal",
             ["LabFeaturesEnabled"] = false
         };
+        if (service == "catalog") config["ServiceJwt"] = new { PublicKeyPath = CertificatePath(certificates, "reservations-signing.pub") };
         if (service == "gateway")
         {
             ((Dictionary<string, string>)config["Jwt"])["PrivateKeyPath"] = CertificatePath(certificates, "jwt.key");
             config["DataProtection"] = new { CertificatePath = CertificatePath(certificates, "protection.pfx") };
+            config["GatewayApi"] = new { BaseAddress = container ? "https://gateway:8443/" : "https://localhost:8443/" };
             var routes = new Dictionary<string, object>(); var clusters = new Dictionary<string, object>();
             for (var i = 0; i < 4; i++)
             {
@@ -99,6 +102,7 @@ public static class LocalConfiguration
         var directory = Path.Combine(root, ".local");
         var settings = JsonSerializer.Deserialize<ProvisioningSettings>(File.ReadAllText(Path.Combine(directory, "provisioner.json")))
             ?? throw new InvalidOperationException("Private settings missing.");
+        EnsureReservationsKey(Path.Combine(directory, "certificates"));
         foreach (var schema in Schemas)
         {
             var service = schema == "identity" ? "gateway" : schema;
@@ -109,6 +113,16 @@ public static class LocalConfiguration
         Console.WriteLine("Runtime configuration refreshed; certificates, passwords, and database data retained.");
     }
     private static void WriteJson(string path, object value) => File.WriteAllText(path, JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }));
+    private static void EnsureReservationsKey(string certificates)
+    {
+        var privatePath = Path.Combine(certificates, "reservations-signing.key");
+        var publicPath = Path.Combine(certificates, "reservations-signing.pub");
+        if (File.Exists(privatePath) && File.Exists(publicPath)) return;
+        if (File.Exists(privatePath) || File.Exists(publicPath)) throw new InvalidOperationException("Incomplete service key pair; explicit repair required.");
+        using var rsa = RSA.Create(3072);
+        File.WriteAllText(privatePath, rsa.ExportPkcs8PrivateKeyPem());
+        File.WriteAllText(publicPath, rsa.ExportSubjectPublicKeyInfoPem());
+    }
 }
 public sealed record SeedUser(string Name, string Email, string Password, string Role);
 public sealed record ProvisioningSettings(string AdminConnection, Dictionary<string, string> RuntimePasswords,

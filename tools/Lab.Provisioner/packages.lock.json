@@ -317,6 +317,12 @@
           "System.Security.Cryptography.Pkcs": "10.0.10"
         }
       },
+      "catalog.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
+        }
+      },
       "gateway.web": {
         "type": "Project",
         "dependencies": {

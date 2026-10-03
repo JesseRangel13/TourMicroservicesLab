@@ -1,0 +1,28 @@
+@page "/tours"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Catalog.CatalogClient Catalog
+<h1>Tours</h1>
+<label>Search <input @bind="search" maxlength="200" /></label>
+<button disabled="@Busy" @onclick="Search">Search</button>
+<AuthorizeView Roles="Admin"><a href="/admin/catalog">Manage catalog</a></AuthorizeView>
+@if (Busy) { <p role="status">Loading…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@if (result is not null)
+{
+    <p>@result.Total tours; page @(page)</p>
+    <ul>@foreach (var tour in result.Items) { <li><a href="@($"/tours/{tour.Id}")">@tour.Name</a> — @(tour.Active ? "Active" : "Inactive")</li> }</ul>
+    <button disabled="@(Busy || page <= 1)" @onclick="Previous">Previous</button>
+    <button disabled="@(Busy || (long)page * 10 >= result.Total)" @onclick="Next">Next</button>
+}
+@code {
+    private string search = "";
+    private int page = 1;
+    private Shared.Contracts.TourPage? result;
+    protected override Task OnInitializedAsync() => Load();
+    private Task Load() => RunAsync(async ct => result = await Catalog.SearchAsync(search, page, ct));
+    private Task Search() { page = 1; return Load(); }
+    private Task Previous() { page--; return Load(); }
+    private Task Next() { page++; return Load(); }
+}
