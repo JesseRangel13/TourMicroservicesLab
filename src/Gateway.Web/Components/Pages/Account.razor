@@ -1,0 +1,12 @@
+@page "/account"
+@attribute [Authorize]
+@rendermode InteractiveServer
+<h1>Account</h1>
+<AuthorizeView>
+    <Authorized Context="auth">
+        <p>Signed in as @auth.User.Identity?.Name.</p>
+        <p>Roles: @string.Join(", ", auth.User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value))</p>
+        <p>Session expires after 30 minutes. This interactive circuit revalidates identity every 30 seconds.</p>
+    </Authorized>
+    <NotAuthorized><p>Your session expired. <a href="/login" data-enhance-nav="false">Sign in again</a>.</p></NotAuthorized>
+</AuthorizeView>

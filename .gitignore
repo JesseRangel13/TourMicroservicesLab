@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.local/
+.vs/
+TestResults/
+**/*.user
+**/appsettings.Local.json
+**/*.pfx
+**/*.key
+**/*.pem
+**/terraform.tfstate*

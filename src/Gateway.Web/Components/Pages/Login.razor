@@ -1,0 +1,13 @@
+@page "/login"
+@attribute [AllowAnonymous]
+<PageTitle>Login</PageTitle>
+<h1>Login</h1>
+@if (!string.IsNullOrEmpty(Error)) { <p role="alert">Sign-in failed. Check your credentials or wait if your account is locked.</p> }
+<form method="post" action="/auth/login" data-enhance="false">
+    <AntiforgeryToken />
+    <p><label>Username <input name="username" required autocomplete="username" maxlength="256" /></label></p>
+    <p><label>Password <input type="password" name="password" required autocomplete="current-password" maxlength="256" /></label></p>
+    <button type="submit">Sign in</button>
+</form>
+<p>Accounts: Alice, Bob, Admin. Passwords are generated locally and never published. Public registration is unavailable.</p>
+@code { [SupplyParameterFromQuery] public string? Error { get; set; } }

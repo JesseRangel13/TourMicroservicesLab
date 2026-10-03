@@ -1,0 +1,8 @@
+.git
+.local
+**/bin
+**/obj
+**/*.pfx
+**/*.key
+**/*.pem
+TestResults

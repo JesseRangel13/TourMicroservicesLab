@@ -1,0 +1,86 @@
+name: tourlab-local
+services:
+  postgres:
+    image: postgres:17.6-bookworm@sha256:45cd22f8d32e189d245403954882f88e7a8714301fda80dab6da90f1265b25a3
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: tourlab
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports: ["127.0.0.1:54329:5432"]
+    entrypoint: ["/bin/sh", "/lab/postgres-entrypoint.sh"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/local/postgres-entrypoint.sh:/lab/postgres-entrypoint.sh:ro
+      - ./infra/local/pg_hba.conf:/lab/pg_hba.conf:ro
+      - ./.local/postgres-password:/run/secrets/postgres-password:ro
+      - ./.local/certificates/postgres.crt:/run/lab/postgres.crt:ro
+      - ./.local/certificates/postgres.key:/run/lab/postgres.key:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tourlab"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  elasticmq:
+    image: softwaremill/elasticmq:1.6.15@sha256:4be07e1a0f31e52478a9425ec522f3229699fcd3fd3c300a9e998bb953d5f653
+    platform: linux/amd64
+    ports: ["127.0.0.1:9324:9324"]
+    volumes:
+      - ./infra/local/elasticmq.conf:/opt/elasticmq.conf:ro
+      - elasticmq-data:/data
+    stop_grace_period: 30s
+  gateway:
+    build: { context: ., args: { PROJECT: Gateway.Web } }
+    image: tourlab/gateway:lab001
+    ports: ["127.0.0.1:8443:8443"]
+    volumes:
+      - ./.local/gateway.container.json:/run/lab/config.json:ro
+      - ./.local/certificates/gateway.pfx:/run/lab/gateway.pfx:ro
+      - ./.local/certificates/protection.pfx:/run/lab/protection.pfx:ro
+      - ./.local/certificates/jwt.key:/run/lab/jwt.key:ro
+      - ./.local/certificates/jwt.pub:/run/lab/jwt.pub:ro
+      - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
+    depends_on: { postgres: { condition: service_healthy } }
+  catalog:
+    build: { context: ., args: { PROJECT: Catalog.Api } }
+    image: tourlab/catalog:lab001
+    ports: ["127.0.0.1:8444:8443"]
+    volumes:
+      - ./.local/catalog.container.json:/run/lab/config.json:ro
+      - ./.local/certificates/catalog.pfx:/run/lab/catalog.pfx:ro
+      - ./.local/certificates/jwt.pub:/run/lab/jwt.pub:ro
+      - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
+    depends_on: { postgres: { condition: service_healthy } }
+  reservations:
+    build: { context: ., args: { PROJECT: Reservations.Api } }
+    image: tourlab/reservations:lab001
+    ports: ["127.0.0.1:8445:8443"]
+    volumes:
+      - ./.local/reservations.container.json:/run/lab/config.json:ro
+      - ./.local/certificates/reservations.pfx:/run/lab/reservations.pfx:ro
+      - ./.local/certificates/jwt.pub:/run/lab/jwt.pub:ro
+      - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
+    depends_on: { postgres: { condition: service_healthy } }
+  payments:
+    build: { context: ., args: { PROJECT: Payments.Api } }
+    image: tourlab/payments:lab001
+    ports: ["127.0.0.1:8446:8443"]
+    volumes:
+      - ./.local/payments.container.json:/run/lab/config.json:ro
+      - ./.local/certificates/payments.pfx:/run/lab/payments.pfx:ro
+      - ./.local/certificates/jwt.pub:/run/lab/jwt.pub:ro
+      - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
+    depends_on: { postgres: { condition: service_healthy } }
+  notifications:
+    build: { context: ., args: { PROJECT: Notifications.Api } }
+    image: tourlab/notifications:lab001
+    ports: ["127.0.0.1:8447:8443"]
+    volumes:
+      - ./.local/notifications.container.json:/run/lab/config.json:ro
+      - ./.local/certificates/notifications.pfx:/run/lab/notifications.pfx:ro
+      - ./.local/certificates/jwt.pub:/run/lab/jwt.pub:ro
+      - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
+    depends_on: { postgres: { condition: service_healthy } }
+volumes:
+  postgres-data:
+  elasticmq-data:

@@ -1,0 +1,7 @@
+@page "/logout"
+@attribute [Authorize]
+<h1>Logout</h1>
+<form method="post" action="/auth/logout" data-enhance="false">
+    <AntiforgeryToken />
+    <button type="submit">Sign out</button>
+</form>
