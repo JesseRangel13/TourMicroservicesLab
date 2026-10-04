@@ -96,7 +96,7 @@ public sealed class CatalogTests
         Assert.Equal(99999, replay.Session.UnitAmountMinor); Assert.True((await Hold(f, Hold(quote), Context())).Succeeded);
         await Run(async db => {
             var row = await db.Outbox.SingleAsync(o => o.EffectKey == $"session/{f.Session.Id}/{changed.PriceVersion}");
-            Assert.Null(row.PublishedAtUtc); Assert.Contains("TourSessionChanged", row.EnvelopeJson); Assert.Contains("99999", row.EnvelopeJson); return true;
+            Assert.Contains("TourSessionChanged", row.EnvelopeJson); Assert.Contains("99999", row.EnvelopeJson); return true;
         });
     }
     [LocalFact]

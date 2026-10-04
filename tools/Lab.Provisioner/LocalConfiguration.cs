@@ -77,6 +77,15 @@ public static class LocalConfiguration
             ["LabFeaturesEnabled"] = false
         };
         if (service == "catalog") config["ServiceJwt"] = new { PublicKeyPath = CertificatePath(certificates, "reservations-signing.pub") };
+        if (service is "catalog" or "reservations")
+        {
+            var endpoint = container ? "http://elasticmq:9324" : "http://localhost:9324";
+            config["Messaging"] = new { Enabled = true, Local = true, Endpoint = endpoint, Region = "us-east-1",
+                InputQueue = "tourlab-" + service, LeaseSeconds = 60, VisibilitySeconds = 60, WaitSeconds = 20,
+                QueueUrls = new[] { "catalog", "reservations", "payments", "notifications" }.ToDictionary(s => "tourlab-" + s, s => $"{endpoint}/000000000000/tourlab-{s}") };
+        }
+        if (service == "reservations") config["CatalogClient"] = new { BaseAddress = container ? "https://catalog:8443/" : "https://localhost:8444/",
+            PrivateKeyPath = CertificatePath(certificates, "reservations-signing.key"), TimeoutSeconds = 3 };
         if (service == "gateway")
         {
             ((Dictionary<string, string>)config["Jwt"])["PrivateKeyPath"] = CertificatePath(certificates, "jwt.key");

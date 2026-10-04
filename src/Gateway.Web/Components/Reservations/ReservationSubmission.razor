@@ -1,0 +1,28 @@
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Reservations.ReservationClient Reservations
+@inject NavigationManager Navigation
+<fieldset disabled="@Busy">
+    <legend>Request reservation</legend>
+    <p>Accepted unit price: @((UnitAmountMinor / 100m).ToString("0.00")) MXN. Payment completion is not implemented until LAB-004.</p>
+    <label>Participants (1–6) <input type="number" min="1" max="6" @bind="participants" disabled="@(intention is not null)" /></label>
+    @if (Total is long total) { <p>Total to accept: @((total / 100m).ToString("0.00")) MXN</p> }
+    else { <p role="alert">Select a valid quantity; the total must fit integer minor units.</p> }
+    <label><input type="checkbox" @bind="accepted" disabled="@(intention is not null)" /> I accept this price and quantity.</label>
+    <button disabled="@(!accepted || Total is null || Session.StartsAtUtc <= DateTimeOffset.UtcNow)" @onclick="Submit">@(intention is null ? "Submit reservation" : "Retry same intention")</button>
+    <button @onclick="NewIntention">Start a deliberate new intention</button>
+    @if (intention is not null) { <p>Current intention key: @key. Retry keeps its original session, quantity and price.</p> }
+    @if (Busy) { <p role="status">Submitting…</p> }
+    @if (Error is not null) { <p role="alert">@Error</p> }
+</fieldset>
+@code {
+    [Parameter, EditorRequired] public Shared.Contracts.SessionView Session { get; set; } = default!;
+    private int participants = 1; private bool accepted; private string key = Guid.NewGuid().ToString();
+    private Shared.Contracts.CreateReservation? intention;
+    private long UnitAmountMinor => intention?.ExpectedUnitAmountMinor ?? Session.UnitAmountMinor;
+    private long? Total { get { try { return participants is >= 1 and <= 6 ? checked(UnitAmountMinor * participants) : null; } catch (OverflowException) { return null; } } }
+    private Task Submit() => RunAsync(async ct => {
+        intention ??= new(Session.Id, participants, Session.UnitAmountMinor, Session.Currency);
+        var result = await Reservations.CreateAsync(intention, key, ct); Navigation.NavigateTo($"/reservations/{result.ReservationId}");
+    });
+    private void NewIntention() { intention = null; key = Guid.NewGuid().ToString(); accepted = false; Success = "Confirm the displayed price before a new submission."; }
+}

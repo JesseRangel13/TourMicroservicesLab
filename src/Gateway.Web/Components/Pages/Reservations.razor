@@ -1,0 +1,24 @@
+@page "/reservations"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Reservations.ReservationClient ReservationsClient
+<h1>Reservations</h1>
+<p>Payment completion and cancellation are not implemented yet. AwaitingPayment is pending LAB-004.</p>
+<AuthorizeView Roles="Admin"><label>User ID filter <input @bind="userId" /></label><label>Status filter <input @bind="status" /></label></AuthorizeView>
+<button disabled="@Busy" @onclick="Search">Reload / filter</button>
+@if (Busy) { <p role="status">Loading…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@if (result is not null)
+{
+    <p>@result.Total reservations; page @(page)</p>
+    <ul>@foreach (var reservation in result.Items) { <li><a href="@($"/reservations/{reservation.Id}")">@reservation.Id</a> — @reservation.Status — @((reservation.TotalAmountMinor / 100m).ToString("0.00")) @reservation.Currency</li> }</ul>
+    <button disabled="@(Busy || page <= 1)" @onclick="Previous">Previous</button><button disabled="@(Busy || (long)page * 10 >= result.Total)" @onclick="Next">Next</button>
+}
+@code {
+    private Shared.Contracts.ReservationPage? result; private int page = 1; private string userId = ""; private string status = "";
+    protected override Task OnInitializedAsync() => Load();
+    private Task Load() => RunAsync(async ct => result = await ReservationsClient.ListAsync(page, userId, status, ct));
+    private Task Search() { page = 1; return Load(); }
+    private Task Previous() { page--; return Load(); } private Task Next() { page++; return Load(); }
+}

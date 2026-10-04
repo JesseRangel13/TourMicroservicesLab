@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../../src/Gateway.Web/Gateway.Web.csproj" /><ProjectReference Include="../../src/Catalog.Api/Catalog.Api.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../src/Gateway.Web/Gateway.Web.csproj" /><ProjectReference Include="../../src/Catalog.Api/Catalog.Api.csproj" /><ProjectReference Include="../../src/Reservations.Api/Reservations.Api.csproj" /></ItemGroup>
 </Project>

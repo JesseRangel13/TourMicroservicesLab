@@ -1,4 +1,4 @@
-# Learning map: LAB-001 and LAB-002
+# Learning map: LAB-001 through LAB-003
 
 Topics are applied examples, not declarations of mastery. Numbers follow specification 05.
 
@@ -19,8 +19,7 @@ Topics are applied examples, not declarations of mastery. Numbers follow specifi
 | 16 Security | per-service JWT validation, SSR antiforgery, local CA, encrypted Data Protection | Explain the difference between cookie/session identity and stateless JWT expiry. |
 | 17 Containers | `Dockerfile`, `compose.yaml`, pinned tags/digests/lock files, stop/start checks | Why do stopping containers and deleting volumes have different durability outcomes? |
 
-Saga, Inbox, transport dispatch, and resilience await their implementation tasks. No fabricated code
-examples are listed for them. A Money struct is not required to enforce this task's integer amount
+Complete Saga recovery and resilience await their implementation tasks. A Money struct is not required to enforce this task's integer amount
 boundary and checked multiplication. Covariance, ref/out,
 hand-built expression trees, domain events, and in-process locks are not needed by this foundation.
 EF model building does not require a custom reflection dispatcher. OpenTelemetry and business
@@ -51,3 +50,20 @@ implement OIDC discovery, authorization code flow, or PKCE.
 TimeProvider is the replaceable clock boundary. Tests advance it instead of waiting five/ten minutes.
 Amounts remain long integer cents; decimal is used only to format displayed MXN amounts. Projection
 serialization tests preserve integers beyond double precision. No learning topic is marked mastered.
+
+## LAB-003 concrete examples
+
+| Topic | Actual code paths | Exercise / interview question |
+|---|---|---|
+| Classes/records/nullability | `src/Reservations.Api/Persistence/ReservationsDb.cs`; `src/Shared.Contracts/ReservationContracts.cs`; `src/Shared.Infrastructure/Messaging/MessageCodec.cs` | Why are tracked mutable entities classes while commands and envelopes are records? Why must malformed envelopes fail at the boundary? |
+| Async/cancellation/resources | `src/Shared.Infrastructure/Messaging/Workers.cs`; `src/Gateway.Web/Components/Pages/ReservationDetail.razor` | Trace shutdown through receive, visibility renewal, transaction and acknowledgement. Who observes and joins polling/renewal tasks? |
+| DI/Options/lifetimes | `src/Reservations.Api/ReservationEndpoints.cs`; `src/Shared.Infrastructure/Messaging/SqsTransport.cs`; `src/Reservations.Api/Application/CatalogQuoteClient.cs` | Singleton transport/issuer, scoped consumers/DbContext, typed HttpClient: explain each lifetime and why workers create async scopes. |
+| HTTP/security | `src/Gateway.Web/Reservations/ReservationClient.cs`; `src/Reservations.Api/ReservationEndpoints.cs`; `CatalogQuoteClient.cs` | Distinguish the user's per-request JWT from the dedicated service identity. Why is UserId derived from validated claims? |
+| Transactions/idempotency | `src/Reservations.Api/Application/ReservationHandlers.cs`; `src/Shared.Infrastructure/Messaging/LocalTransactions.cs`; `src/Catalog.Api/Application/InventoryHandlers.cs` | Explain HTTP before transaction, unique-conflict rollback before reread, and why nested inventory handlers join the Inbox transaction. |
+| Durable delivery/leases | `src/Shared.Infrastructure/Messaging/OutboxDispatch.cs`; `Workers.cs`; `tests/Lab.Tests/MessagingTests.cs` | Explain send-before-mark duplicates, consumer-commit-before-delete recovery, lease fencing and stable operation/message/delivery identities. Why is delivery not exactly once? |
+| Typed handlers/boundaries | `src/Catalog.Api/Messaging/CatalogConsumer.cs`; `src/Reservations.Api/Messaging/ReservationConsumer.cs` | Follow explicit routing and typed payload dispatch without shared entities, another service's tables or a reflection dispatcher. |
+| Evidence/testing | `tests/Lab.Tests/ReservationHttpTests.cs`; `MessagingTests.cs`; `MessagingContractTests.cs` | Separate pure envelope checks, direct PostgreSQL handlers, real SDK transport crash windows and live HTTP-to-SQS workflow tests. |
+
+Activity trace context and durable correlation exist now; full telemetry, retry/breaker policies and
+DLQ administration remain LAB-006. Payment, refund, cancellation and complete compensation handlers
+remain later tasks. Browser circuit isolation remains LAB-007. No topic is marked mastered.

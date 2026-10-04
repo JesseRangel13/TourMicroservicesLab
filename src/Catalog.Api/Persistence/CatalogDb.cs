@@ -53,6 +53,9 @@ public sealed class SeatHold
 // Durable intents only. LAB-003 adds leases, dispatch, and Inbox consumption.
 public sealed class CatalogOutbox
 {
+    public Guid? LeaseOwner { get; set; }
+    public DateTimeOffset? LeaseUntilUtc { get; set; }
+    public int Attempts { get; set; }
     public Guid DeliveryId { get; set; }
     public Guid MessageId { get; set; }
     public string EffectKey { get; set; } = "";
@@ -61,6 +64,13 @@ public sealed class CatalogOutbox
     public string EnvelopeJson { get; set; } = "";
     public DateTimeOffset OccurredAtUtc { get; set; }
     public DateTimeOffset? PublishedAtUtc { get; set; }
+}
+public sealed class CatalogInbox
+{
+    public string ConsumerName { get; set; } = "";
+    public Guid MessageId { get; set; }
+    public string Fingerprint { get; set; } = "";
+    public DateTimeOffset ProcessedAtUtc { get; set; }
 }
 public sealed class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(options)
 {
@@ -72,6 +82,8 @@ public sealed class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(o
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasDefaultSchema("catalog");
+        model.Entity<CatalogInbox>(b => { b.ToTable("Inbox"); b.HasKey(x => new { x.ConsumerName, x.MessageId });
+            b.Property(x => x.ConsumerName).HasMaxLength(100); b.Property(x => x.Fingerprint).HasMaxLength(64); b.HasIndex(x => x.ProcessedAtUtc); });
         model.Entity<Tour>(b =>
         {
             b.ToTable("Tours", t => t.HasCheckConstraint("CK_Tour", "length(btrim(\"Name\")) > 0 AND \"Version\" > 0"));

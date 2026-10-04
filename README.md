@@ -59,10 +59,10 @@ or DbContext. `tools/Lab.Provisioner` is a separate local-only one-shot process 
 credentials; none are mounted into hosts. Each runtime role can perform DML only in its own schema,
 has no CREATE privilege, and has a maximum pool size of five. Each schema has its own migrator role.
 
-The provisioner applies checked-in Identity and Catalog migrations before hosts start and seeds
-users and sample tours idempotently. Other business schemas still have only `SchemaVersion`.
-Catalog owns Tours, Sessions, Quotes, Holds, and a minimal Outbox. Inbox and transport workers
-arrive in LAB-003; no message delivery is claimed in LAB-002.
+The provisioner applies checked-in Identity, Catalog and Reservations migrations before hosts start
+and seeds users and sample tours idempotently. Payments and Notifications schemas still have only
+`SchemaVersion`. Catalog and Reservations own separate Inbox/Outbox tables and runtime credentials.
+Catalog's existing Outbox intents remain intact and now dispatch through real ElasticMQ/SQS.
 Data Protection keys persist encrypted in the identity schema using a dedicated private certificate.
 
 `GET /health/live` requires no identity and no database. `GET /health/ready` requires a valid API
@@ -78,6 +78,7 @@ returns 404 for internal paths. No service-token issuing HTTP endpoint exists.
 dotnet build --no-restore
 dotnet test --no-build # pure tests run; local integration/restart tests report SKIP explicitly
 ./scripts/Verify-Local.ps1 # enables real PostgreSQL and HTTP integration tests
+./scripts/Verify-Messaging.ps1 # controlled crash windows; pauses/resumes Catalog/Reservations workers
 ./scripts/Verify-Restart.ps1 # stops/starts this Compose lab; preserves its data
 docker compose ps
 curl.exe --ssl-revoke-best-effort --cacert .local/certificates/ca.crt https://localhost:8443/health/live
@@ -90,6 +91,8 @@ endpoint while preserving certificate/hostname verification. Do not use `-k` or 
 Failure details and actual check results are in `docs/evidence/LAB-001.md`.
 Catalog migration/API/manual UI instructions are in `docs/catalog-execution.md`; LAB-002 results
 are in `docs/evidence/LAB-002.md`.
+Reservations, queue initialization, staged consumers and manual UI checks are documented in
+`docs/reservations-execution.md`; actual LAB-003 results are in `docs/evidence/LAB-003.md`.
 To regenerate runtime JSON after a path/config-generator change without rotating passwords/keys:
 `dotnet run --project tools/Lab.Provisioner -- refresh`.
 Use `config/private.example.json` as the secret-free shape reference. Never copy the privileged
@@ -105,7 +108,10 @@ Git and Docker build contexts. Linux/macOS setup scripts are not provided in LAB
 No AWS resources, paid services, real card payments, or SMTP deliveries were created.
 Neon/Fargate deployment is reserved for LAB-008/009 with fresh quota, cost, and permission checks.
 This foundation does not satisfy the full business UI or distributed-workflow acceptance criteria.
-Next task: **LAB-002**, Catalog CRUD/sessions, quotes, atomic inventory, and catalog/admin screens.
+The implemented reservation workflow is create → hold/reject → AwaitingPayment/Failed. A successful
+hold persists and publishes ProcessPayment; Payments consumption remains disabled until LAB-004.
+Cancellation, payment success, compensation and complete Saga timers are not implemented.
+Next task: **LAB-004**, durable fake Payments/Notifications and the successful confirmation workflow.
 
 ## Original specification overview
 
@@ -114,8 +120,8 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 ## Objective
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
-The original package contained specifications only. This repository now includes LAB-001 and LAB-002;
-distributed reservation/payment/notification workflows and AWS resources remain unimplemented.
+The original package contained specifications only. This repository now includes LAB-001 through
+LAB-003; payment/notification processing, complete Saga recovery and AWS resources remain unimplemented.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.

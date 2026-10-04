@@ -12,7 +12,8 @@
     <AuthorizeView Roles="Admin"><a href="@($"/admin/catalog/{Id}")">Edit tour and sessions</a></AuthorizeView>
     <table><thead><tr><th>Departure (UTC)</th><th>Unit price (MXN)</th><th>Available / capacity</th></tr></thead>
     <tbody>@foreach (var session in sessions) { <tr><td>@session.StartsAtUtc.ToString("u")</td><td>@((session.UnitAmountMinor / 100m).ToString("0.00"))</td><td>@session.AvailableSeats / @session.Capacity</td></tr> }</tbody></table>
-    <p>Reservation submission is pending LAB-003.</p>
+    @if (tour.Active) { @foreach (var session in sessions.Where(s => s.StartsAtUtc > DateTimeOffset.UtcNow)) { <Gateway.Web.Components.Reservations.ReservationSubmission @key="session.Id" Session="session" /> } }
+    <p>Payment completion is pending LAB-004.</p>
 }
 <button disabled="@Busy" @onclick="Load">Reload</button>
 @code {

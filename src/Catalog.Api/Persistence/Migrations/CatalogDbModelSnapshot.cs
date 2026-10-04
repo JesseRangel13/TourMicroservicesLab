@@ -23,11 +23,38 @@ namespace Catalog.Api.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Catalog.Api.Persistence.CatalogInbox", b =>
+                {
+                    b.Property<string>("ConsumerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ConsumerName", "MessageId");
+
+                    b.HasIndex("ProcessedAtUtc");
+
+                    b.ToTable("Inbox", "catalog");
+                });
+
             modelBuilder.Entity("Catalog.Api.Persistence.CatalogOutbox", b =>
                 {
                     b.Property<Guid>("DeliveryId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Destination")
                         .IsRequired()
@@ -42,6 +69,12 @@ namespace Catalog.Api.Persistence.Migrations
                     b.Property<string>("EnvelopeJson")
                         .IsRequired()
                         .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("LeaseOwner")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("LeaseUntilUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("MessageId")
                         .HasColumnType("uuid");

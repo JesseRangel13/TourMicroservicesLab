@@ -34,6 +34,7 @@ public static class LabHosting
         builder.Logging.AddJsonConsole(o => o.IncludeScopes = true);
         // Do not allow EF/HTTP diagnostic logs to expose private inputs.
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.None);
         builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics", LogLevel.None);
         builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
         {

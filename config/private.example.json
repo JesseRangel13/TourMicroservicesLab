@@ -4,6 +4,23 @@
   "DataProtection": { "CertificatePath": "<Gateway only private encryption PFX path>" },
   "ServiceJwt": { "PublicKeyPath": "<Catalog only Reservations public signing PEM path>" },
   "GatewayApi": { "BaseAddress": "https://localhost:8443/" },
+  "CatalogClient": { "BaseAddress": "https://localhost:8444/", "PrivateKeyPath": "<Reservations only private service signing PEM path>", "TimeoutSeconds": 3 },
+  "Messaging": {
+    "Enabled": true,
+    "Local": true,
+    "Endpoint": "http://localhost:9324",
+    "Region": "us-east-1",
+    "InputQueue": "tourlab-reservations",
+    "LeaseSeconds": 60,
+    "VisibilitySeconds": 60,
+    "WaitSeconds": 20,
+    "QueueUrls": {
+      "tourlab-catalog": "http://localhost:9324/000000000000/tourlab-catalog",
+      "tourlab-reservations": "http://localhost:9324/000000000000/tourlab-reservations",
+      "tourlab-payments": "http://localhost:9324/000000000000/tourlab-payments",
+      "tourlab-notifications": "http://localhost:9324/000000000000/tourlab-notifications"
+    }
+  },
   "Kestrel": { "Endpoints": { "Https": { "Url": "https://localhost:8443", "Certificate": { "Path": "<private service PFX path>" } } } },
   "AllowedHosts": "localhost;lab.tours.test;gateway.tourlab.internal",
   "LabFeaturesEnabled": false

@@ -101,7 +101,7 @@ public sealed class CatalogHttpTests
         using var login = await client.PostAsync("https://localhost:8443/auth/login", new FormUrlEncodedContent(new Dictionary<string, string> {
             ["username"] = user.Name, ["password"] = user.Password, ["__RequestVerificationToken"] = IntegrationTests.ExtractAntiforgery(html) })); Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
         var tours = await client.GetStringAsync("https://localhost:8443/tours"); Assert.Contains("Previous", tours); Assert.Contains("Manage catalog", tours); Assert.DoesNotContain("Catalog is unavailable", tours);
-        var detail = await client.GetStringAsync("https://localhost:8443/tours/10000000-0000-0000-0000-000000000001"); Assert.Contains("Reservation submission is pending LAB-003", detail);
+        var detail = await client.GetStringAsync("https://localhost:8443/tours/10000000-0000-0000-0000-000000000001"); Assert.Contains("Payment completion is pending LAB-004", detail);
         var edit = await client.GetStringAsync("https://localhost:8443/admin/catalog/10000000-0000-0000-0000-000000000001"); Assert.Contains("Save price", edit); Assert.Contains("Save capacity", edit);
     }
 }

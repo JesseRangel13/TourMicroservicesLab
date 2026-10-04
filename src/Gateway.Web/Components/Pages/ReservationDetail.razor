@@ -1,0 +1,38 @@
+@page "/reservations/{Id:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Reservations.ReservationClient ReservationsClient
+<h1>Reservation</h1><a href="/reservations">Back to list</a>
+<button disabled="@Busy" @onclick="Load">Reload</button>
+@if (Busy) { <p role="status">Loading…</p> }
+@if (Error is not null) { <p role="alert">@Error</p> }
+@if (reservation is not null)
+{
+    <p>@reservation.Id — @reservation.Status</p><p>@reservation.Reason</p>
+    <p>Participants: @reservation.Participants; agreed total: @((reservation.TotalAmountMinor / 100m).ToString("0.00")) @reservation.Currency</p>
+    <p>Departure (UTC): @reservation.StartsAtUtc.ToString("u")</p>
+    <p>AwaitingPayment means a payment command is queued. Payment success, cancellation and compensation are not implemented yet.</p>
+    <h2>Timeline</h2><ul>@foreach (var item in timeline) { <li>@item.OccurredAtUtc.ToString("u"): @item.From → @item.To @item.Reason</li> }</ul>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Shared.Contracts.ReservationView? reservation; private Shared.Contracts.TransitionView[] timeline = [];
+    private Task? polling;
+    protected override async Task OnParametersSetAsync() { await Load(); }
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    { if (firstRender) polling = PollAsync(); return Task.CompletedTask; }
+    private Task Load() => RunAsync(async ct => { reservation = await ReservationsClient.DetailAsync(Id, ct); timeline = await ReservationsClient.TimelineAsync(Id, ct); });
+    private async Task PollAsync()
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+            while (reservation is not null && reservation.Status is not ("Failed" or "Confirmed" or "Cancelled" or "ManualReview")
+                && await timer.WaitForNextTickAsync(Lifetime.Token)) await InvokeAsync(async () => { await Load(); StateHasChanged(); });
+        }
+        catch (OperationCanceledException) when (Lifetime.IsCancellationRequested) { }
+    }
+    public async ValueTask DisposeAsync() { Lifetime.Cancel(); if (polling is not null) await polling; Dispose(); }
+}

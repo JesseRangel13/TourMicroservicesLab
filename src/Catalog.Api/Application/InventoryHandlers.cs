@@ -4,6 +4,7 @@ using System.Text.Json;
 using Catalog.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Contracts;
+using Shared.Infrastructure.Messaging;
 namespace Catalog.Api.Application;
 
 public sealed record CatalogMessageContext(Guid MessageId, Guid SagaId, Guid CorrelationId)
@@ -18,7 +19,7 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
         context.Validate(); CatalogRules.Require(command.HoldId != Guid.Empty && command.QuoteId != Guid.Empty
             && command.ReservationId != Guid.Empty && !string.IsNullOrWhiteSpace(command.UserId) && command.UserId.Length <= 128);
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(command))));
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await TransactionOwner.BeginAsync(db, ct);
         await CatalogRules.LockAsync(db, $"hold/{command.HoldId}", ct);
         var hold = await db.Holds.SingleOrDefaultAsync(h => h.Id == command.HoldId, ct);
         if (hold is not null)
@@ -59,7 +60,7 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
     public async Task<InventoryResult> ConfirmAsync(ConfirmSeats command, CatalogMessageContext context, CancellationToken ct)
     {
         context.Validate(); CatalogRules.Require(command.HoldId != Guid.Empty);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await TransactionOwner.BeginAsync(db, ct);
         await CatalogRules.LockAsync(db, $"hold/{command.HoldId}", ct);
         var hold = await db.Holds.SingleOrDefaultAsync(h => h.Id == command.HoldId, ct);
         if (hold is not null) CatalogRules.Require(hold.SagaId == context.SagaId, "OperationIdentityConflict", 409);
@@ -78,7 +79,7 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
     public async Task<InventoryResult> ReleaseAsync(ReleaseSeats command, CatalogMessageContext context, CancellationToken ct)
     {
         context.Validate(); CatalogRules.Require(command.HoldId != Guid.Empty && !string.IsNullOrWhiteSpace(command.Reason) && command.Reason.Length <= 100);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await TransactionOwner.BeginAsync(db, ct);
         await CatalogRules.LockAsync(db, $"hold/{command.HoldId}", ct);
         var hold = await db.Holds.SingleOrDefaultAsync(h => h.Id == command.HoldId, ct);
         if (hold is null)
@@ -103,11 +104,11 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
         await IntentAsync($"hold/{hold.Id}/released", new SeatsReleased(hold.Id), context, ct);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return new(true, hold.Status);
     }
-    // Directly callable by tests; scheduling and transport are deliberately deferred to LAB-003.
+    // Also called by the scoped expiration worker.
     public async Task<InventoryResult> ExpireAsync(Guid holdId, CancellationToken ct)
     {
         CatalogRules.Require(holdId != Guid.Empty);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await TransactionOwner.BeginAsync(db, ct);
         await CatalogRules.LockAsync(db, $"hold/{holdId}", ct);
         var hold = await db.Holds.SingleOrDefaultAsync(h => h.Id == holdId, ct);
         if (hold?.SessionId is Guid sessionId)
@@ -127,7 +128,7 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
     private Task IntentAsync<T>(string key, T payload, CatalogMessageContext context, CancellationToken ct) =>
         CatalogRules.AddIntentAsync(db, key, payload, clock.GetUtcNow(), context.SagaId, context.CorrelationId, context.MessageId, ct);
     private async Task<InventoryResult> RejectAsync(SeatHold hold, string reason, CatalogMessageContext context,
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction tx, CancellationToken ct)
+        TransactionOwner tx, CancellationToken ct)
     {
         if (hold.Status == "Rejected") hold.Reason = reason;
         await IntentAsync($"hold/{hold.Id}/hold-rejected", new SeatsHoldRejected(hold.Id, reason), context, ct);

@@ -1,5 +1,6 @@
 using Gateway.Web.Identity;
 using Catalog.Api.Persistence;
+using Reservations.Api.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,7 +81,12 @@ public static class DatabaseBootstrap
         var catalogRuntime = new DbContextOptionsBuilder<CatalogDb>().UseNpgsql(
             LocalConfiguration.Connection("localhost", "catalog_runtime", settings.RuntimePasswords["catalog"], certDir)).Options;
         await using (var db = new CatalogDb(catalogRuntime)) await CatalogSeed.RunAsync(db, ct);
-        Console.WriteLine("Schemas/roles provisioned, Identity and Catalog migrated, and samples seeded without resetting existing data.");
+        var reservationsMigration = new DbContextOptionsBuilder<ReservationsDb>().UseNpgsql(
+            LocalConfiguration.Connection("localhost", "reservations_migrator", settings.MigrationPasswords["reservations"], certDir),
+            o => o.MigrationsHistoryTable("__EFMigrationsHistory", "reservations")).Options;
+        await using (var db = new ReservationsDb(reservationsMigration)) await db.Database.MigrateAsync(ct);
+        await ExecuteAsync(admin, "REVOKE ALL ON reservations.\"__EFMigrationsHistory\" FROM reservations_runtime;", ct);
+        Console.WriteLine("Schemas/roles provisioned, Identity, Catalog and Reservations migrated, and samples seeded without resetting existing data.");
     }
     private static void Ensure(IdentityResult result)
     {

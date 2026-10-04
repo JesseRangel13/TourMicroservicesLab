@@ -37,6 +37,7 @@ public sealed class PersistenceTests
         Assert.Equal(HttpStatusCode.OK, before.StatusCode);
         var beforeIdentity = await before.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
         var catalogBefore = await CatalogSnapshotAsync();
+        var reservationsBefore = await ReservationsSnapshotAsync();
         await DockerAsync("stop");
         await DockerAsync("start");
         var alive = false;
@@ -65,6 +66,7 @@ public sealed class PersistenceTests
         await using var count = new NpgsqlCommand("SELECT COUNT(*) FROM identity.\"AspNetUsers\"", connection);
         Assert.Equal(3L, await count.ExecuteScalarAsync());
         Assert.Equal(catalogBefore, await CatalogSnapshotAsync());
+        Assert.Equal(reservationsBefore, await ReservationsSnapshotAsync());
     }
     private static async Task<string> CatalogSnapshotAsync()
     {
@@ -81,9 +83,28 @@ public sealed class PersistenceTests
                 (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Sessions" t) ||
                 (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Quotes" t) ||
                 (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM catalog."Holds" t) ||
-                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."DeliveryId"),'[]'::jsonb)::text FROM catalog."Outbox" t))
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."DeliveryId"),'[]'::jsonb)::text FROM catalog."Outbox" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."ConsumerName",t."MessageId"),'[]'::jsonb)::text FROM catalog."Inbox" t))
             """, connection);
         return (string)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Catalog snapshot missing."));
+    }
+    private static async Task<string> ReservationsSnapshotAsync()
+    {
+        var settings = IntegrationTests.Settings;
+        var probe = new NpgsqlConnectionStringBuilder(LocalConfiguration.Connection("localhost", "reservations_runtime",
+            settings.RuntimePasswords["reservations"], Path.Combine(IntegrationTests.Root, ".local", "certificates"))) { Pooling = false };
+        await using var connection = new NpgsqlConnection(probe.ConnectionString); await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT md5(
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM reservations."Reservations" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM reservations."Sagas" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."UserId",t."OperationName",t."Key"),'[]'::jsonb)::text FROM reservations."IdempotencyRequests" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."Id"),'[]'::jsonb)::text FROM reservations."History" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."DeliveryId"),'[]'::jsonb)::text FROM reservations."Outbox" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."ConsumerName",t."MessageId"),'[]'::jsonb)::text FROM reservations."Inbox" t) ||
+                (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t."SessionId"),'[]'::jsonb)::text FROM reservations."TourProjections" t))
+            """, connection);
+        return (string)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Reservations snapshot missing."));
     }
     private static async Task<XDocument> BrokerAsync(HttpClient client, Dictionary<string, string> values)
     {

@@ -10,6 +10,8 @@ docker compose up -d elasticmq
 if ($LASTEXITCODE -ne 0) { throw 'ElasticMQ startup failed.' }
 dotnet run --project tools/Lab.Provisioner -- bootstrap
 if ($LASTEXITCODE -ne 0) { throw 'One-shot bootstrap/migration failed. Hosts were not started.' }
+dotnet run --project tools/Lab.Provisioner -- queues
+if ($LASTEXITCODE -ne 0) { throw 'Local queue initialization failed; rerun after ElasticMQ is ready.' }
 if ($SkipBuild) { docker compose up -d --wait gateway catalog reservations payments notifications }
 else { docker compose up -d --build --wait gateway catalog reservations payments notifications }
 if ($LASTEXITCODE -ne 0) { throw 'Application startup failed.' }

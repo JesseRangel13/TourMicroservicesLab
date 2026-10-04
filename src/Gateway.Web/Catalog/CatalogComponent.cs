@@ -14,7 +14,7 @@ public abstract class CatalogComponent : ComponentBase, IDisposable
         catch (OperationCanceledException) when (Lifetime.IsCancellationRequested) { }
         catch (OperationCanceledException) { Error = "Request timed out. Reload to check whether a change completed before retrying."; }
         catch (CatalogClientException e) { Error = e.Message; }
-        catch (HttpRequestException) { Error = "Catalog is unavailable. Reload before retrying a change."; }
+        catch (HttpRequestException) { Error = "Service is unavailable. Retry an uncertain submission with its original key."; }
         finally { Busy = false; }
     }
     public void Dispose() { Lifetime.Cancel(); Lifetime.Dispose(); GC.SuppressFinalize(this); }
