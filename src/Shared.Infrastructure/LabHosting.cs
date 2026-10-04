@@ -32,6 +32,7 @@ public static class LabHosting
             .AddEnvironmentVariables();
         builder.Logging.ClearProviders();
         builder.Logging.AddJsonConsole(o => o.IncludeScopes = true);
+        builder.AddLabTelemetry();
         // Do not allow EF/HTTP diagnostic logs to expose private inputs.
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.None);
@@ -72,10 +73,13 @@ public static class LabHosting
         app.UseStatusCodePages();
         app.Use(async (context, next) =>
         {
+            using var scope = app.Logger.BeginScope(new Dictionary<string, object?> { ["service"] = app.Environment.ApplicationName, ["event"] = "http",
+                ["TraceId"] = Activity.Current?.TraceId.ToString(), ["SpanId"] = Activity.Current?.SpanId.ToString() });
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             context.Response.Headers["Referrer-Policy"] = "same-origin";
             context.Response.Headers["X-Frame-Options"] = "DENY";
             await next(context);
+            app.Logger.LogInformation("HTTP completed {StatusCode}", context.Response.StatusCode);
         });
         app.UseAuthentication();
         app.UseAuthorization();
@@ -106,9 +110,9 @@ public static class LabHosting
     public static void MapScaffoldStatus(this WebApplication app, string service)
     {
         app.MapGet("/v1/status", (HttpContext context) =>
-            new ServiceStatus(service, "LAB-001 scaffold; business operations pending", context.User.FindFirst("sub")?.Value ?? ""))
+            new ServiceStatus(service, "LAB-006 local implementation; independent review pending", context.User.FindFirst("sub")?.Value ?? ""))
             .RequireAuthorization("Api");
-        app.MapGet("/v1/admin/status", () => new { service, stage = "LAB-001" }).RequireAuthorization("AdminApi");
+        app.MapGet("/v1/admin/status", () => new { service, stage = "LAB-006" }).RequireAuthorization("AdminApi");
     }
 }
 

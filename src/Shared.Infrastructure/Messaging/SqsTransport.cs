@@ -14,6 +14,7 @@ public sealed class MessagingOptions
     public string? Endpoint { get; set; }
     public string Region { get; set; } = "us-east-1";
     public string InputQueue { get; set; } = "";
+    public string DeadLetterQueueUrl { get; set; } = "";
     public Dictionary<string, string> QueueUrls { get; set; } = [];
     public int LeaseSeconds { get; set; } = 60;
     public int VisibilitySeconds { get; set; } = 60;

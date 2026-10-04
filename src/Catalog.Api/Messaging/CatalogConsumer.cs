@@ -28,10 +28,11 @@ public sealed class CatalogConsumer(CatalogDb db, InventoryHandlers inventory) :
         }, ct);
     }
 }
-public sealed class HoldExpirationWorker(IServiceScopeFactory scopes, IOptions<MessagingOptions> options, ILogger<HoldExpirationWorker> logger) : BackgroundService
+public sealed class HoldExpirationWorker(IServiceScopeFactory scopes, IOptions<MessagingOptions> options, ILogger<HoldExpirationWorker> logger, Shared.Infrastructure.Operations.WorkerStatus status) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        status.Update("hold-expiration",options.Value.Enabled,options.Value.Enabled?"Starting":"Disabled");
         if (!options.Value.Enabled) return;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -44,13 +45,14 @@ public sealed class HoldExpirationWorker(IServiceScopeFactory scopes, IOptions<M
                     ids = await db.Holds.AsNoTracking().Where(h => h.Status == "Held" && h.ExpiresAtUtc <= DateTimeOffset.UtcNow)
                         .OrderBy(h => h.ExpiresAtUtc).Take(10).Select(h => h.Id).ToArrayAsync(stoppingToken);
                 }
+                status.Update("hold-expiration",true,"Running");
                 foreach (var id in ids)
                 {
                     await using var scope = scopes.CreateAsyncScope();
                     await scope.ServiceProvider.GetRequiredService<InventoryHandlers>().ExpireAsync(id, stoppingToken);
                 }
             }
-            catch (Exception error) when (!stoppingToken.IsCancellationRequested) { logger.LogWarning("Expiration deferred; {FailureType}", error.GetType().Name); }
+            catch (Exception error) when (!stoppingToken.IsCancellationRequested) { status.Update("hold-expiration",true,"Failure",error.GetType().Name);logger.LogWarning("Expiration deferred; {FailureType}", error.GetType().Name); }
             await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
         }
     }

@@ -15,10 +15,10 @@ public static class ReservationEndpoints
         services.AddDbContext<ReservationsDb>(o => o.UseNpgsql(config.GetConnectionString("Runtime"), pg => pg.MigrationsHistoryTable("__EFMigrationsHistory", "reservations")));
         services.AddOptions<CatalogClientOptions>().Bind(config.GetSection("CatalogClient"))
             .Validate(o => Uri.TryCreate(o.BaseAddress, UriKind.Absolute, out var uri) && uri.Scheme == "https" && File.Exists(o.PrivateKeyPath)
-                && o.TimeoutSeconds is >= 1 and <= 10, "Catalog HTTPS, dedicated signing key, bounded timeout required.").ValidateOnStart();
+                && o.TotalTimeoutSeconds is >= 1 and <= 30, "Catalog HTTPS, dedicated signing key, bounded total timeout required.").ValidateOnStart();
         services.AddSingleton(TimeProvider.System); services.AddSingleton<ServiceTokenIssuer>(); services.AddSingleton<QuoteConcurrencyLimit>();
         services.AddHttpClient<ICatalogQuoteClient, CatalogQuoteClient>((sp, client) =>
-        { var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogClientOptions>>().Value; client.BaseAddress = new Uri(o.BaseAddress); client.Timeout = TimeSpan.FromSeconds(o.TimeoutSeconds); })
+        { var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogClientOptions>>().Value; client.BaseAddress = new Uri(o.BaseAddress); client.Timeout = Timeout.InfiniteTimeSpan; })
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
         services.AddScoped<ReservationCreator>(); services.AddScoped<ReservationQueries>();
         services.AddOptions<SagaRecoveryOptions>().Bind(config.GetSection("SagaRecovery"))
@@ -32,6 +32,14 @@ public static class ReservationEndpoints
     }
     public static void MapReservations(this WebApplication app)
     {
+        app.MapGet("/v1/projections/tour-sessions",async(ReservationsDb db,int? page,int? pageSize,CancellationToken ct)=>
+        {
+            var p=page??1;var size=pageSize??10;
+            if(p<1 || size is <1 or >50 || (long)(p-1)*size>int.MaxValue)return Results.BadRequest(new {code="InvalidPagination"});
+            var rows=await db.Projections.AsNoTracking().OrderBy(x=>x.SessionId).Skip((p-1)*size).Take(size)
+                .Select(x=>new TourProjectionView(x.SessionId,x.Name,x.Active,x.PriceVersion,x.UnitAmountMinor,x.Currency,x.UpdatedAtUtc)).ToArrayAsync(ct);
+            return Results.Ok(rows);
+        }).RequireAuthorization("Api");
         var group = app.MapGroup("/v1/reservations").RequireAuthorization("Api").AddEndpointFilter(async (context, next) =>
         {
             try { return await next(context); }

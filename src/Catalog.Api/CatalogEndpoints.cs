@@ -72,12 +72,17 @@ public static class CatalogEndpoints
         { var session = await handler.CreateSessionAsync(id, command, ct); return Results.Created($"/v1/tours/{id}/sessions", session); });
         admin.MapPut("/sessions/{id:guid}/price", (Guid id, UpdatePrice command, CatalogCommands handler, CancellationToken ct) => handler.PriceAsync(id, command, ct));
         admin.MapPut("/sessions/{id:guid}/capacity", (Guid id, UpdateCapacity command, CatalogCommands handler, CancellationToken ct) => handler.CapacityAsync(id, command, ct));
-        api.MapPost("/internal/quotes", (CreateQuote command, QuoteHandler handler, CancellationToken ct) => handler.HandleAsync(command, ct)).RequireAuthorization("CatalogQuotes");
+        api.MapPost("/internal/quotes", (CreateQuote command, QuoteHandler handler, Shared.Infrastructure.Operations.ServiceOperations operations, CancellationToken ct) => QuoteAsync(command, handler, operations, ct)).RequireAuthorization("CatalogQuotes");
+    }
+    private static async Task<QuoteView> QuoteAsync(CreateQuote command, QuoteHandler handler, Shared.Infrastructure.Operations.ServiceOperations operations, CancellationToken ct)
+    {
+        if (await operations.TakeFaultAsync("QuoteTimeout", ct)) await Task.Delay(TimeSpan.FromSeconds(4), ct);
+        return await handler.HandleAsync(command, ct);
     }
     private static async Task<FaultView> SetFaultAsync(WebApplication app,FaultSelection request,HttpContext http,CatalogDb db,CancellationToken ct)
     {
         if(!app.Configuration.GetValue<bool>("LabFeaturesEnabled"))throw new CatalogProblem(404,"LabFeaturesDisabled");
-        if(request.Mode is not ("None" or "RejectNextConfirmation") || request.Occurrences is <0 or >100)throw new CatalogProblem(400,"InvalidFaultSelection");
+        if(request.Mode is not ("None" or "QuoteTimeout" or "RejectNextConfirmation" or "PauseConsumption") || request.Occurrences is <0 or >100)throw new CatalogProblem(400,"InvalidFaultSelection");
         await using var tx=await db.Database.BeginTransactionAsync(ct);
         var row=(await db.Faults.FromSqlRaw("SELECT * FROM catalog.\"Faults\" WHERE \"Id\"=1 FOR UPDATE").ToListAsync(ct)).Single();
         row.Mode=request.Mode;row.Remaining=request.Occurrences;

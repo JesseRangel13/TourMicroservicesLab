@@ -21,7 +21,8 @@ builder.Services.AddAuthentication(o =>
 builder.Services.AddSingleton<JwtIssuer>();
 builder.Services.AddOptions<Gateway.Web.Catalog.GatewayApiOptions>().BindConfiguration("GatewayApi")
     .Validate(o => Uri.TryCreate(o.BaseAddress, UriKind.Absolute, out var uri) && uri.Scheme == "https", "HTTPS Gateway API address required.").ValidateOnStart();
-builder.Services.AddHttpClient("GatewayApi", client => client.Timeout = TimeSpan.FromSeconds(10))
+// Include the configurable quote budget (up to thirty seconds) and caller/TLS overhead.
+builder.Services.AddHttpClient("GatewayApi", client => client.Timeout = TimeSpan.FromSeconds(40))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
 builder.Services.AddScoped<Gateway.Web.Catalog.CatalogClient>();
 builder.Services.AddScoped<Gateway.Web.Reservations.ReservationClient>();

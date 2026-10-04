@@ -10,6 +10,14 @@ using Shared.Contracts;
 namespace Gateway.Web.Business;
 public sealed class BusinessClient(IHttpClientFactory factory,AuthenticationStateProvider authentication,JwtIssuer issuer,IOptions<GatewayApiOptions> options)
 {
+    private static string ServicePath(LabService service)=>service switch { LabService.Catalog=>"catalog",LabService.Reservations=>"reservations",LabService.Payments=>"payments",LabService.Notifications=>"notifications",_=>throw new ArgumentOutOfRangeException(nameof(service)) };
+    public Task<ServiceDiagnostics> DiagnosticsAsync(LabService service,int page,CancellationToken ct)=>SendAsync<ServiceDiagnostics>(HttpMethod.Get,$"{ServicePath(service)}/v1/admin/diagnostics?page={page}",null,ct);
+    public Task<DeadLetterView[]> DeadLettersAsync(LabService service,CancellationToken ct)=>SendAsync<DeadLetterView[]>(HttpMethod.Get,$"{ServicePath(service)}/v1/admin/dead-letters?pageSize=10",null,ct);
+    public Task<ReplayView> ReplayAsync(LabService service,Guid id,CancellationToken ct)=>SendAsync<ReplayView>(HttpMethod.Post,$"{ServicePath(service)}/v1/admin/dead-letters/{id}/replay",null,ct);
+    public Task<FaultView> ServiceFaultAsync(LabService service,CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Get,$"{ServicePath(service)}/v1/admin/faults",null,ct);
+    public Task<FaultView> SetServiceFaultAsync(LabService service,FaultSelection selection,CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Put,$"{ServicePath(service)}/v1/admin/faults",selection,ct);
+    public Task<FaultView> ResetServiceFaultAsync(LabService service,CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Post,$"{ServicePath(service)}/v1/admin/faults/reset",null,ct);
+    public Task<TourProjectionView[]> ProjectionsAsync(int page,CancellationToken ct)=>SendAsync<TourProjectionView[]>(HttpMethod.Get,$"reservations/v1/projections/tour-sessions?page={page}",null,ct);
     public Task<PaymentView[]> PaymentsAsync(int page,Guid? reservation,CancellationToken ct)=>SendAsync<PaymentView[]>(HttpMethod.Get,$"payments/v1/payments?page={page}&reservationId={reservation}",null,ct);
     public Task<PaymentView> PaymentAsync(Guid id,CancellationToken ct)=>SendAsync<PaymentView>(HttpMethod.Get,$"payments/v1/payments/{id}",null,ct);
     public Task<PaymentView> ReconcileAsync(Guid id,CancellationToken ct)=>SendAsync<PaymentView>(HttpMethod.Post,$"payments/v1/admin/payments/{id}/reconcile",null,ct);

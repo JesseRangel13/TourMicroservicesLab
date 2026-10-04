@@ -33,6 +33,7 @@ public static class InboxTransaction
             var duplicateSql = $"SELECT 1 AS \"Value\" FROM {schema}.\"Inbox\" WHERE \"ConsumerName\"={{0}} AND \"MessageId\"={{1}} AND \"Fingerprint\"={{2}}";
             var matches = await db.Database.SqlQueryRaw<int>(duplicateSql, consumer, envelope.MessageId, fingerprint).ToListAsync(ct);
             if (matches.Count != 1) throw new PoisonMessageException("MessageIdentityConflict");
+            LabTelemetry.Count("inbox", "duplicate");
         }
         else { await effects(ct); await db.SaveChangesAsync(ct); }
         await tx.CommitAsync(ct); return inserted != 0;

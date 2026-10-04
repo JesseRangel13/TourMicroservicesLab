@@ -1,0 +1,24 @@
+services:
+  gateway:
+    environment: { Telemetry__Endpoint: "http://otel-collector:4317", Telemetry__Sampling: "1" }
+  catalog:
+    environment: { Telemetry__Endpoint: "http://otel-collector:4317", Telemetry__Sampling: "1" }
+  reservations:
+    environment: { Telemetry__Endpoint: "http://otel-collector:4317", Telemetry__Sampling: "1" }
+  payments:
+    environment: { Telemetry__Endpoint: "http://otel-collector:4317", Telemetry__Sampling: "1" }
+  notifications:
+    environment: { Telemetry__Endpoint: "http://otel-collector:4317", Telemetry__Sampling: "1" }
+  otel-collector:
+    profiles: [tracing]
+    image: otel/opentelemetry-collector:0.140.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./infra/local/otel-collector.yaml:/etc/otelcol/config.yaml:ro"]
+    mem_limit: 128m
+    depends_on: [jaeger]
+  jaeger:
+    profiles: [tracing]
+    image: jaegertracing/all-in-one:1.76.0
+    environment: { COLLECTOR_OTLP_ENABLED: "true", MEMORY_MAX_TRACES: "2000" }
+    ports: ["127.0.0.1:16686:16686"]
+    mem_limit: 256m

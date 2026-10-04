@@ -1,3 +1,4 @@
+using Shared.Infrastructure.Operations;
 using Shared.Infrastructure;
 using Catalog.Api;
 using Shared.Infrastructure.Messaging;
@@ -12,12 +13,14 @@ builder.Services.AddScoped<Shared.Infrastructure.Messaging.IOutboxStore>(sp => n
     builder.Configuration.GetConnectionString("Runtime")!, "catalog"));
 builder.Services.AddScoped<Shared.Infrastructure.Messaging.OutboxDispatcher>();
 builder.Services.AddHostedService<Catalog.Api.Messaging.HoldExpirationWorker>();
+builder.Services.AddServiceOperations(builder.Configuration, "catalog");
 var app = builder.Build();
 app.UseLabPipeline();
 app.UseRateLimiter();
 app.MapLabHealth();
 app.MapScaffoldStatus(app.Environment.ApplicationName);
 app.MapCatalog();
+app.MapServiceOperations("catalog");
 app.Run();
 
 return 0;

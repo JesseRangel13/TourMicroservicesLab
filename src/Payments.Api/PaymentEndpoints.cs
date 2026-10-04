@@ -72,7 +72,7 @@ public static class PaymentEndpoints
     private static async Task<FaultView> SetFaultAsync(WebApplication app,HttpContext http,PaymentsDb db,FaultSelection request,CancellationToken ct)
     {
         if(!app.Configuration.GetValue<bool>("LabFeaturesEnabled"))throw new PaymentProblem(404,"LabFeaturesDisabled");
-        if(request.Mode is not ("Success" or "Decline" or "TimeoutAfterCharge" or "UnknownUntilAdminResolution" or "RefundTransientFailure") || request.Occurrences is <0 or >100)throw new PaymentProblem(400,"InvalidFaultSelection");
+        if(request.Mode is not ("Success" or "Decline" or "TimeoutAfterCharge" or "UnknownUntilAdminResolution" or "RefundTransientFailure" or "PauseConsumption") || request.Occurrences is <0 or >100)throw new PaymentProblem(400,"InvalidFaultSelection");
         await using var tx=await db.Database.BeginTransactionAsync(ct);
         var row=(await db.Faults.FromSqlRaw("SELECT * FROM payments.\"Faults\" WHERE \"Id\"=1 FOR UPDATE").ToListAsync(ct)).Single();
         row.Mode=request.Mode;row.Remaining=request.Occurrences;

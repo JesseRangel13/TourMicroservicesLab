@@ -25,4 +25,5 @@ public sealed record SeatsReleased(Guid HoldId);
 public sealed record TourSessionChanged(Guid SessionId, string TourName, bool Active, long PriceVersion,
     long UnitAmountMinor, string Currency);
 public sealed record IntegrationEnvelope<T>(Guid MessageId, Guid DeliveryId, string Type, int Version,
-    DateTimeOffset OccurredAtUtc, Guid? SagaId, Guid CorrelationId, Guid CausationId, string? Traceparent, T Payload);
+    DateTimeOffset OccurredAtUtc, Guid? SagaId, Guid CorrelationId, Guid CausationId, string? Traceparent, T Payload)
+{ [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? Tracestate { get; init; } }

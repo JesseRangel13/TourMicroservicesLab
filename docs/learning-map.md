@@ -119,5 +119,22 @@ dispatcher library or additional infrastructure was added. No topic is marked ma
    original IDs. It is an operational obligation, not a successful refund or proof of no charge.
 
 Historical LAB-003/004 sections describe their staged boundaries. Current LAB-005 supplies refund,
-cancellation and deadline recovery. Full diagnostics/observability remains LAB-006; automated browser
+cancellation and deadline recovery. LAB-006 now supplies diagnostics/observability; automated browser
 circuit isolation remains LAB-007. No learning topic is automatically marked mastered.
+
+## LAB-006: bounded operations and observability
+
+| Actual code | Concepts | Exercise / interview question |
+|---|---|---|
+| `src/Reservations.Api/Application/CatalogQuoteClient.cs` | HttpClientFactory; asynchronous cancellation; total/attempt budgets; SemaphoreSlim; thread-safe consecutive breaker; per-instance DI lifetime | Explain why retry limits alone do not bound duration. Run QuoteResilienceTests and identify which failures qualify. Why does an old completion need a generation fence? |
+| `src/Shared.Infrastructure/LabTelemetry.cs`, `Messaging/Workers.cs`, `Messaging/OutboxDispatch.cs` | ActivitySource/ActivityContext; OpenTelemetry; JSON allowlists; traces vs history; low-cardinality Meter labels | Follow actual message TraceId/ParentSpanId in `.local/lab006-message-traces.json`. Explain why a Saga can outlive one trace and why ReservationId belongs in spans, not metric labels. |
+| `src/Shared.Infrastructure/Operations/ServiceOperations.cs` and each service's `Lab006Operations` migration | Service-owned SQL plumbing; bounded queries; Admin endpoint authorization; leasing; durable audit; send-before-delete | Run the duplicate replay and expired inspection tests. Why can a successful SQS DeleteMessage still leave a future delivery? Why is DLQ inspection a mutation of broker visibility? |
+| `src/Reservations.Api/Messaging/ReservationConsumer.cs`, `ReservationEndpoints.cs` | Transactional Inbox; projection versions; appropriate immutable DTO records; service-owned EF models | Send 3 then 2 and prove the projection remains at 3. Explain why this copy cannot approve a price or allocate seats. |
+| `src/Gateway.Web/Business/BusinessClient.cs`, `Components/Pages/Operations.razor`, `TourProjections.razor` | Per-user request authorization; cancellable UI calls; typed contracts; manual refresh; disposable resources | Switch the selected service and inspect network activity. No inactive-service polling should occur. Browser circuit isolation is still a LAB-007 verification exercise. |
+| `compose.tracing.yaml`, `infra/local/otel-collector.yaml`, `docs/operations-execution.md` | Optional infrastructure; sampling; memory limits; liveness/readiness; session cost discipline | Compare base JSON output with Jaeger, then stop tracing containers. Explain why an active worker session can keep Neon awake even when readiness has no periodic scraper. |
+
+1. **Why not use the standard ratio breaker?** The contract requires consecutive logical failures. The concrete breaker implements exactly that policy; retries remain inside each logical operation. A successful/non-transient response clears consecutive failures, while caller cancellation does not count as dependency failure.
+2. **What makes replay safe?** Original message/business IDs, own-queue validation, backend leases and existing Inbox/business idempotency. Sending precedes deletion; an uncertain boundary may duplicate delivery. Safety concerns effects, not exactly-once transport.
+3. **What is the difference between health and diagnostics?** Liveness measures process availability without dependencies; readiness verifies the owned database on demand; diagnostics explains current work/worker observations through protected bounded APIs. Neither requires all downstream services.
+4. **How do you keep telemetry useful and private?** Explicit safe identifier scopes, disabled sensitive EF/header/body logging, allowlisted JSON spans, and bounded metric labels. Business history remains a persisted queryable domain record; traces/logs are diagnostic evidence.
+5. **Why no interface for every new class?** The quote client and transport are replaceable boundaries. A concrete breaker, worker-status store and SQL operations helper implement simple plumbing. EF models stay owned; no generic repository, reflection dispatch or new architecture layers were needed.

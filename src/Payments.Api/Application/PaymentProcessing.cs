@@ -103,7 +103,7 @@ public sealed class PaymentConsumer(PaymentsDb db) : IInboxConsumer
                 return;
             }
             var fault=(await db.Faults.FromSqlRaw("SELECT * FROM payments.\"Faults\" WHERE \"Id\"=1 FOR UPDATE").ToListAsync(token)).Single();
-            var mode=fault.Remaining>0?fault.Mode:"Success"; if(fault.Remaining>0) fault.Remaining--;
+            var mode=fault.Remaining>0 && fault.Mode!="PauseConsumption"?fault.Mode:"Success"; if(fault.Remaining>0 && fault.Mode!="PauseConsumption") fault.Remaining--;
             db.Operations.Add(new PaymentOperation {Id=payload.PaymentOperationId,SagaId=envelope.SagaId!.Value,ReservationId=payload.ReservationId,
                 UserId=payload.UserId,AmountMinor=payload.AmountMinor,Currency=payload.Currency,Mode=mode,SourceMessageId=envelope.MessageId,CorrelationId=envelope.CorrelationId});
         },ct);
@@ -129,6 +129,8 @@ public sealed class PaymentProcessor(PaymentsDb db, IPaymentProvider provider,Ti
             operation.LeaseOwner=Guid.NewGuid(); operation.LeaseUntilUtc=clock.GetUtcNow().AddSeconds(60);
             operation.Version++; await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         }
+        using var span=Shared.Infrastructure.LabTelemetry.Activities.StartActivity("handler.durable-work");
+        span?.SetTag("ReservationId",operation.ReservationId);span?.SetTag("SagaId",operation.SagaId);span?.SetTag("OperationId",operation.Id);
         var owner=operation.LeaseOwner; ProviderCharge? result=null; var unknown=false;
         try
         {
@@ -159,7 +161,7 @@ public sealed class PaymentProcessor(PaymentsDb db, IPaymentProvider provider,Ti
             else AddIntent(new PaymentDeclined(current.Id,current.Reason!),current,"declined");
         }
         current.LeaseOwner=null; current.LeaseUntilUtc=null; current.Version++;
-        await db.SaveChangesAsync(ct); await commit.CommitAsync(ct); return true;
+        await db.SaveChangesAsync(ct); await commit.CommitAsync(ct); Shared.Infrastructure.LabTelemetry.Count("payment",current.Status);return true;
     }
     private void AddIntent<T>(T payload,PaymentOperation operation,string outcome)
     {

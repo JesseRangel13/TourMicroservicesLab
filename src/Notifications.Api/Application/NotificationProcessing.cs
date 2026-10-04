@@ -69,6 +69,8 @@ public sealed class NotificationProcessor(NotificationsDb db,INotificationSender
             operation.LeaseOwner=Guid.NewGuid();operation.LeaseUntilUtc=clock.GetUtcNow().AddSeconds(60);operation.Version++;
             await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
         }
+        using var span=Shared.Infrastructure.LabTelemetry.Activities.StartActivity("handler.durable-work");
+        span?.SetTag("ReservationId",operation.ReservationId);span?.SetTag("SagaId",operation.SagaId);span?.SetTag("OperationId",operation.Id);
         var owner=operation.LeaseOwner;DateTimeOffset? delivered=null;
         try{delivered=await sender.SendAsync(operation,ct);}catch(SimulatedSenderFailure){}
         if(afterSender is not null)await afterSender(ct);
@@ -78,6 +80,6 @@ public sealed class NotificationProcessor(NotificationsDb db,INotificationSender
         if(delivered is not null){current.Status="Sent";current.SentAtUtc=delivered;}
         else current.NextAttemptAtUtc=clock.GetUtcNow().AddSeconds(5);
         current.LeaseOwner=null;current.LeaseUntilUtc=null;current.Version++;
-        await db.SaveChangesAsync(ct);await commit.CommitAsync(ct);return true;
+        await db.SaveChangesAsync(ct);await commit.CommitAsync(ct);Shared.Infrastructure.LabTelemetry.Count("durable_work",current.Status);return true;
     }
 }

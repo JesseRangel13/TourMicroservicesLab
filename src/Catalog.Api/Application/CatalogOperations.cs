@@ -47,7 +47,7 @@ public static class CatalogRules
         }
         var messageId = Guid.NewGuid(); var deliveryId = Guid.NewGuid();
         var envelope = new IntegrationEnvelope<T>(messageId, deliveryId, typeof(T).Name, 1, now,
-            sagaId, correlationId, causationId, Activity.Current?.Id, payload);
+            sagaId, correlationId, causationId, Activity.Current?.Id, payload) { Tracestate = Activity.Current?.TraceStateString };
         db.Outbox.Add(new CatalogOutbox { DeliveryId = deliveryId, MessageId = messageId, EffectKey = effectKey,
             Type = typeof(T).Name, OccurredAtUtc = now,
             EnvelopeJson = JsonSerializer.Serialize(envelope, new JsonSerializerOptions(JsonSerializerDefaults.Web)) });

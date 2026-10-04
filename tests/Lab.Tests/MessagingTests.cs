@@ -189,7 +189,8 @@ public sealed class MessagingTests
         await DockerAsync("stop", "catalog");
         try
         {
-            using var client = IntegrationTests.CreateClient(); using var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:8445/v1/reservations") { Content = JsonContent.Create(new CreateReservation(session.Id, 1, session.UnitAmountMinor, "MXN")) };
+            // The caller budget must exceed the ten-second quote budget plus its own TLS handshake.
+            using var client = IntegrationTests.CreateClient();client.Timeout=TimeSpan.FromSeconds(20); using var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:8445/v1/reservations") { Content = JsonContent.Create(new CreateReservation(session.Id, 1, session.UnitAmountMinor, "MXN")) };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", alice.Token); request.Headers.Add("Idempotency-Key", key);
             using var response = await client.SendAsync(request); Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
             await using var db = ReservationTestSupport.Reservations(); Assert.False(await db.Idempotency.AnyAsync(i => i.UserId == alice.Id && i.Key == key));

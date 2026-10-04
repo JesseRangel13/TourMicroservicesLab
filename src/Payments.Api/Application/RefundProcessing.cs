@@ -71,6 +71,8 @@ public sealed class RefundProcessor(PaymentsDb db,IPaymentProvider provider,Time
             operation.LeaseOwner=Guid.NewGuid();operation.LeaseUntilUtc=now.AddSeconds(60);operation.Version++;
             await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
         }
+        using var span=Shared.Infrastructure.LabTelemetry.Activities.StartActivity("handler.durable-work");
+        span?.SetTag("ReservationId",operation.ReservationId);span?.SetTag("SagaId",operation.SagaId);span?.SetTag("OperationId",operation.Id);
         var owner=operation.LeaseOwner;string? reference=null;
         try
         {
@@ -98,7 +100,7 @@ public sealed class RefundProcessor(PaymentsDb db,IPaymentProvider provider,Time
             await IntentAsync(new RefundNeedsReview(row.Id,row.Reason),row,"review",ct);
         }
         else {row.Reason="Refund outcome pending; status lookup required.";row.NextAttemptAtUtc=clock.GetUtcNow().AddSeconds(ReconciliationPolicy.Intervals[row.Attempts]);}
-        await db.SaveChangesAsync(ct);await commit.CommitAsync(ct);return true;
+        await db.SaveChangesAsync(ct);await commit.CommitAsync(ct);Shared.Infrastructure.LabTelemetry.Count("durable_work",row.Status);return true;
     }
     private async Task IntentAsync<T>(T payload,RefundOperation row,string outcome,CancellationToken ct)
     {

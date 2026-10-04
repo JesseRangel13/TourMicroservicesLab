@@ -31,7 +31,7 @@ public static class MessageCodec
     }
     public static string Fingerprint(IntegrationEnvelope<JsonElement> envelope)
     {
-        var normalized = JsonSerializer.SerializeToElement(envelope with { DeliveryId = Guid.Empty, Traceparent = null }, Json);
+        var normalized = JsonSerializer.SerializeToElement(envelope with { DeliveryId = Guid.Empty, Traceparent = null, Tracestate = null }, Json);
         using var stream = new MemoryStream(); using (var writer = new Utf8JsonWriter(stream)) WriteCanonical(writer, normalized);
         return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
     }
@@ -55,5 +55,5 @@ public static class MessageRoutes
         _ => throw new PoisonMessageException("UnknownRoute")
     };
     public static string Serialize<T>(T payload, Guid messageId, Guid deliveryId, DateTimeOffset now, Guid? sagaId, Guid correlationId, Guid causationId) =>
-        JsonSerializer.Serialize(new IntegrationEnvelope<T>(messageId, deliveryId, typeof(T).Name, 1, now, sagaId, correlationId, causationId, Activity.Current?.Id, payload), MessageCodec.Json);
+        JsonSerializer.Serialize(new IntegrationEnvelope<T>(messageId, deliveryId, typeof(T).Name, 1, now, sagaId, correlationId, causationId, Activity.Current?.Id, payload) { Tracestate = Activity.Current?.TraceStateString }, MessageCodec.Json);
 }

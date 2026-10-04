@@ -83,19 +83,20 @@ public sealed class SagaRecovery(ReservationsDb db,TimeProvider clock,SagaRecove
     private static string? BoundedReason(string? reason)=>reason is {Length:>100}?reason[..100]:reason;
 }
 
-public sealed class SagaDeadlineWorker(IServiceScopeFactory scopes,IOptions<SagaRecoveryOptions> options,ILogger<SagaDeadlineWorker> logger):BackgroundService
+public sealed class SagaDeadlineWorker(IServiceScopeFactory scopes,IOptions<SagaRecoveryOptions> options,ILogger<SagaDeadlineWorker> logger, Shared.Infrastructure.Operations.WorkerStatus status):BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stop)
     {
+        status.Update("saga-deadline",options.Value.Enabled,options.Value.Enabled?"Starting":"Disabled");
         if(!options.Value.Enabled)return;
         while(!stop.IsCancellationRequested)
         {
             try
             {
                 await using var scope=scopes.CreateAsyncScope();using var operation=CancellationTokenSource.CreateLinkedTokenSource(stop);operation.CancelAfter(TimeSpan.FromSeconds(30));
-                if(await scope.ServiceProvider.GetRequiredService<SagaRecovery>().DueAsync(operation.Token))continue;
+                var recovered=await scope.ServiceProvider.GetRequiredService<SagaRecovery>().DueAsync(operation.Token);status.Update("saga-deadline",true,"Running");if(recovered)continue;
             }
-            catch(Exception error) when(!stop.IsCancellationRequested){logger.LogWarning("Durable Saga deadline work retained; {FailureType}",error.GetType().Name);}
+            catch(Exception error) when(!stop.IsCancellationRequested){status.Update("saga-deadline",true,"Failure",error.GetType().Name);logger.LogWarning("Durable Saga deadline work retained; {FailureType}",error.GetType().Name);}
             await Task.Delay(TimeSpan.FromSeconds(1),stop);
         }
     }

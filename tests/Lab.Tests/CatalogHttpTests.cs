@@ -104,6 +104,8 @@ public sealed class CatalogHttpTests
         var detail = await client.GetStringAsync("https://localhost:8443/tours/10000000-0000-0000-0000-000000000001"); Assert.Contains("Payments and notification delivery are simulated", detail);
         var edit = await client.GetStringAsync("https://localhost:8443/admin/catalog/10000000-0000-0000-0000-000000000001"); Assert.Contains("Save price", edit); Assert.Contains("Save capacity", edit);
         Assert.Contains("Simulated payments", await client.GetStringAsync("https://localhost:8443/payments"));
+        Assert.Contains("Receive up to 10",await client.GetStringAsync("https://localhost:8443/operations"));
+        Assert.Contains("Informational tour projection",await client.GetStringAsync("https://localhost:8443/tour-projections"));
         Assert.Contains("Simulated notifications", await client.GetStringAsync("https://localhost:8443/notifications"));
         Assert.Contains("Bounded simulated controls", await client.GetStringAsync("https://localhost:8443/admin/simulations"));
     }

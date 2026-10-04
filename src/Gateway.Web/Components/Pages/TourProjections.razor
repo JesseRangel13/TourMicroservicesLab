@@ -1,0 +1,22 @@
+@using Shared.Contracts
+@page "/tour-projections"
+@attribute [Authorize]
+@implements IDisposable
+@inject Gateway.Web.Business.BusinessClient Client
+<PageTitle>Informational tour projection</PageTitle>
+<h1>Informational tour projection</h1>
+<p>Reservations’ local copy contains only events already received. Absence means no event has arrived. Catalog quotes authorize prices and Catalog allocates capacity; this copy does neither.</p>
+<button @onclick="Refresh" disabled="@busy">Refresh</button>
+@if(busy){<p role="status">Loading…</p>}
+@if(error is not null){<p role="alert">@error</p>}
+@if(rows is not null){
+<table><thead><tr><th>Session</th><th>Tour</th><th>Active</th><th>Price version</th><th>Unit minor amount</th><th>Currency</th><th>Updated UTC</th></tr></thead><tbody>
+@foreach(var row in rows){<tr><td>@row.SessionId</td><td>@row.Name</td><td>@row.Active</td><td>@row.PriceVersion</td><td>@row.UnitAmountMinor</td><td>@row.Currency</td><td>@row.UpdatedAtUtc</td></tr>}
+</tbody></table>}
+<p>Page @(page)</p><button @onclick="Previous" disabled="@(busy || page==1)">Previous</button><button @onclick="Next" disabled="@busy">Next</button>
+@code {
+    private TourProjectionView[]? rows;private int page=1;private bool busy;private string? error;private readonly CancellationTokenSource stop=new();
+    private async Task Refresh(){if(busy)return;busy=true;error=null;using var bounded=CancellationTokenSource.CreateLinkedTokenSource(stop.Token);bounded.CancelAfter(TimeSpan.FromSeconds(15));try{rows=await Client.ProjectionsAsync(page,bounded.Token);}catch(OperationCanceledException) when(stop.IsCancellationRequested){}catch(Exception e) when(e is Gateway.Web.Catalog.CatalogClientException or HttpRequestException or OperationCanceledException){error=e is OperationCanceledException?"Request timed out.":e.Message;}finally{busy=false;}}
+    private async Task Previous(){page=Math.Max(1,page-1);await Refresh();}private async Task Next(){page++;await Refresh();}
+    public void Dispose(){stop.Cancel();stop.Dispose();}
+}

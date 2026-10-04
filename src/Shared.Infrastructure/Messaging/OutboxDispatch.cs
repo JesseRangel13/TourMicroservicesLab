@@ -60,6 +60,9 @@ public sealed class OutboxDispatcher(IOutboxStore store, IMessageTransport trans
         foreach (var row in rows)
         {
             var envelope = MessageCodec.Parse(row.Body);
+            System.Diagnostics.ActivityContext.TryParse(envelope.Traceparent, envelope.Tracestate, true, out var parent);
+            using var span = LabTelemetry.Activities.StartActivity("message.publish", System.Diagnostics.ActivityKind.Producer, parent);
+            foreach (var tag in LabTelemetry.MessageScope(envelope)) span?.SetTag(tag.Key, tag.Value);
             if (envelope.MessageId != row.MessageId || envelope.DeliveryId != row.DeliveryId
                 || !MessageRoutes.Destinations(envelope.Type).Contains(row.Destination)) throw new PoisonMessageException("InvalidOutboxRoute");
             await transport.SendAsync(row.Destination, row.Body, ct);

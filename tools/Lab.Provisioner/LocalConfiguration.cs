@@ -74,18 +74,18 @@ public static class LocalConfiguration
             ["Jwt"] = new Dictionary<string, string> { ["PublicKeyPath"] = CertificatePath(certificates, "jwt.pub") },
             ["Kestrel"] = new { Endpoints = new { Https = new { Url = $"https://{(container ? "0.0.0.0" : "localhost")}:{port}", Certificate = new { Path = CertificatePath(certificates, $"{service}.pfx") } } } },
             ["AllowedHosts"] = $"localhost;127.0.0.1;lab.tours.test;{service};{service}.tourlab.internal",
-            ["LabFeaturesEnabled"] = service is "catalog" or "payments" or "notifications"
+            ["LabFeaturesEnabled"] = service is "catalog" or "reservations" or "payments" or "notifications"
         };
         if (service == "catalog") config["ServiceJwt"] = new { PublicKeyPath = CertificatePath(certificates, "reservations-signing.pub") };
         if (service is "catalog" or "reservations" or "payments" or "notifications")
         {
             var endpoint = container ? "http://elasticmq:9324" : "http://localhost:9324";
             config["Messaging"] = new { Enabled = true, Local = true, Endpoint = endpoint, Region = "us-east-1",
-                InputQueue = "tourlab-" + service, LeaseSeconds = 60, VisibilitySeconds = 60, WaitSeconds = 20,
+                InputQueue = "tourlab-" + service, DeadLetterQueueUrl = $"{endpoint}/000000000000/tourlab-{service}-dlq", LeaseSeconds = 60, VisibilitySeconds = 60, WaitSeconds = 20,
                 QueueUrls = new[] { "catalog", "reservations", "payments", "notifications" }.ToDictionary(s => "tourlab-" + s, s => $"{endpoint}/000000000000/tourlab-{s}") };
         }
         if (service == "reservations") config["CatalogClient"] = new { BaseAddress = container ? "https://catalog:8443/" : "https://localhost:8444/",
-            PrivateKeyPath = CertificatePath(certificates, "reservations-signing.key"), TimeoutSeconds = 3 };
+            PrivateKeyPath = CertificatePath(certificates, "reservations-signing.key"), TotalTimeoutSeconds = 10 };
         if (service == "gateway")
         {
             ((Dictionary<string, string>)config["Jwt"])["PrivateKeyPath"] = CertificatePath(certificates, "jwt.key");

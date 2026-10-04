@@ -7,6 +7,7 @@ durable publication intents, and basic catalog/admin screens. LAB-003 adds durab
 SQS Outbox/Inbox. LAB-004 adds independently durable simulated provider/sender effects, payment
 reconciliation, successful confirmation, declined-payment release and payment/notification screens.
 LAB-005 adds durable refunds, cancellation, persisted Saga deadlines, late-result compensation and authorized recovery controls.
+LAB-006 adds bounded quote resilience, JSON/OpenTelemetry correlation, service-owned diagnostics/DLQ replay, durable fault controls and the informational tour projection.
 The specifications below and in `specs/` remain the source of truth.
 
 ## Run locally on Windows
@@ -131,7 +132,7 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
 The original package contained specifications only. This repository now includes LAB-001 through
-LAB-005; full diagnostics, later security/browser checks and AWS resources remain later tasks.
+LAB-006; independent LAB-006 review, LAB-007 security/browser checks and AWS resources remain later work.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.
@@ -162,3 +163,21 @@ Local execution: no cloud fees. Neon: Free plan within its limits. AWS Fargate: 
 
 ## Out of scope
 No real payment cards, SMTP, maps, AI, chat, coupons, Kubernetes, Redis, managed RabbitMQ, multiple regions, domain purchases, or multitenancy. Do not add every roadmap pattern artificially. Do not introduce subscriptions or commercial libraries to complete the lab.
+
+## LAB-006 operations
+
+Admin controls at `/operations` select one service, show bounded redacted diagnostics, receive up to ten DLQ messages and replay an original delivery after correcting its failure. `/tour-projections` shows Reservations' informational price version and update time. Neither the projection nor a replay creates a new authoritative price, charge or message identity. All backend operations enforce authorization.
+
+Run `./scripts/Verify-Operations.ps1` for real slow-Catalog breaker recovery, pause/reset, projection ordering, trace context and DLQ duplicate/lease tests. The full demo, bounded retry decisions, private configuration and visibility semantics are in [docs/operations-execution.md](docs/operations-execution.md); actual results are in [docs/evidence/LAB-006.md](docs/evidence/LAB-006.md).
+
+Optional local traces:
+
+```powershell
+docker compose -f compose.yaml -f compose.tracing.yaml --profile tracing up -d
+# Open http://localhost:16686 (Jaeger); create a reservation and find its traces.
+# Restore the base session afterward:
+docker compose -f compose.yaml -f compose.tracing.yaml --profile tracing stop otel-collector jaeger
+docker compose up -d --wait gateway catalog reservations payments notifications
+```
+
+The base application remains independent of collector/viewer availability. Readiness is on demand and checks only the owning database; no background database metrics scraper was added. Stop application tasks between sessions to let Neon suspend in a later AWS deployment; a fault pause is not a cloud cost pause. No AWS resources were deployed.
