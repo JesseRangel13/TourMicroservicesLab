@@ -1,5 +1,8 @@
 # LAB-003 local execution
 
+This documents the LAB-003 staging boundary. LAB-004 now enables Payments/Notifications consumers
+and confirmation/release outcomes; use `docs/payments-execution.md` for current execution and demo.
+
 Run commands from the repository root in PowerShell. Requirements: pinned .NET 10 SDK, Docker
 Desktop Linux engine, trusted lab CA, existing private `.local` configuration. No AWS access is needed.
 

@@ -1,4 +1,4 @@
-# Learning map: LAB-001 through LAB-003
+# Learning map: LAB-001 through LAB-004
 
 Topics are applied examples, not declarations of mastery. Numbers follow specification 05.
 
@@ -65,5 +65,24 @@ serialization tests preserve integers beyond double precision. No learning topic
 | Evidence/testing | `tests/Lab.Tests/ReservationHttpTests.cs`; `MessagingTests.cs`; `MessagingContractTests.cs` | Separate pure envelope checks, direct PostgreSQL handlers, real SDK transport crash windows and live HTTP-to-SQS workflow tests. |
 
 Activity trace context and durable correlation exist now; full telemetry, retry/breaker policies and
-DLQ administration remain LAB-006. Payment, refund, cancellation and complete compensation handlers
+DLQ administration remain LAB-006. Refund, cancellation and complete compensation handlers
 remain later tasks. Browser circuit isolation remains LAB-007. No topic is marked mastered.
+
+## LAB-004 concrete examples
+
+| Topic | Actual code paths | Exercise / interview question |
+|---|---|---|
+| Classes/records/nullability | `src/Payments.Api/Persistence/PaymentsDb.cs`; `src/Notifications.Api/Persistence/NotificationsDb.cs`; `src/Shared.Contracts/PaymentContracts.cs` | Why are missing provider results nullable, and why does Unknown never imply no charge? |
+| Async/resources/lifetimes | `src/Payments.Api/Application/PaymentWorker.cs`; `src/Notifications.Api/Application/NotificationWorker.cs`; owned processors/providers | Explain the async scope per item, forty-second bound and separate factory-created effect contexts. |
+| Replaceable boundaries/DI | `IPaymentProvider`, `DurableFakeProvider` in `PaymentProcessing.cs`; `INotificationSender`, `DurableFakeSender` in `NotificationProcessing.cs` | Which boundaries justify an interface? Why are simple processors concrete? |
+| EF transactions/concurrency | `PaymentProcessor.ProcessAsync`; `NotificationProcessor.ProcessAsync`; owned migrations | Explain claim transaction → independent effect commit → fenced result transaction. Which crash remains visible? Why are in-memory locks insufficient? |
+| Durable idempotency/equality | `PaymentConsumer`, provider RequestHash, notification ReservationId/Kind uniqueness and sender SourceEventId/Kind receipt | Distinguish message deduplication, payment operation identity and terminal business-notice identity. |
+| Pipeline/security/typed clients | `PaymentEndpoints.cs`, `NotificationEndpoints.cs`; `src/Gateway.Web/Business/BusinessClient.cs` | Trace cookie → circuit principal → per-request JWT → Gateway → ownership/Admin policies. Explain bounded, audited and rate-limited lab controls. |
+| State transitions/CQRS | `src/Reservations.Api/Messaging/ReservationConsumer.cs`; owned API query projections | Why must a successful payment wait for Catalog confirmation? Why does decline remain Compensating until release? |
+| Tests/recovery | `tests/Lab.Tests/PaymentWorkflowTests.cs`, `ReservationHttpTests.cs`, `PersistenceTests.cs` | Separate real transport controlled-worker tests, enabled-host HTTPS workflow, independent-effect crashes and actual Compose restart recovery. |
+| Cancellable UI polling | `src/Gateway.Web/Components/Pages/Payments.razor`, `Notifications.razor`, `ReservationDetail.razor` | Who owns/observes polling tasks? Why should lists or inactive screens avoid background polling? |
+
+No fake-provider outcome uses randomness or an authoritative volatile dictionary. Integer positive
+MXN amounts remain the money boundary. Refund methods reject unsupported execution instead of
+returning a fictitious refund. Complete compensation is LAB-005; no generic repository, event bus,
+dispatcher library or additional infrastructure was added. No topic is marked mastered.

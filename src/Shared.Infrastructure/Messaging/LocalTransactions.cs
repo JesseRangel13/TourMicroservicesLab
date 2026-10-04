@@ -18,7 +18,7 @@ public static class InboxTransaction
     public static async Task<bool> ProcessAsync(DbContext db, string schema, string consumer,
         IntegrationEnvelope<System.Text.Json.JsonElement> envelope, Func<CancellationToken, Task> effects, CancellationToken ct)
     {
-        if (schema is not ("catalog" or "reservations")) throw new ArgumentException("Unsupported owner schema.", nameof(schema));
+        if (schema is not ("catalog" or "reservations" or "payments" or "notifications")) throw new ArgumentException("Unsupported owner schema.", nameof(schema));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var fingerprint = MessageCodec.Fingerprint(envelope);
         // ON CONFLICT blocks behind a concurrent uncommitted winner without aborting this transaction.

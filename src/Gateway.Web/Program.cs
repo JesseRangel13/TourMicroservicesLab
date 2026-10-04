@@ -25,6 +25,7 @@ builder.Services.AddHttpClient("GatewayApi", client => client.Timeout = TimeSpan
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
 builder.Services.AddScoped<Gateway.Web.Catalog.CatalogClient>();
 builder.Services.AddScoped<Gateway.Web.Reservations.ReservationClient>();
+builder.Services.AddScoped<Gateway.Web.Business.BusinessClient>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, LabRevalidatingAuthenticationStateProvider>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(o => o.DetailedErrors = false);

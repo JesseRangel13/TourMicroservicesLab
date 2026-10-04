@@ -66,6 +66,7 @@ services:
       - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
     depends_on: { postgres: { condition: service_healthy } }
   payments:
+    environment: { Messaging__Enabled: "${LAB_MESSAGING_ENABLED:-true}", PaymentWork__Enabled: "${LAB_WORK_ENABLED:-true}" }
     build: { context: ., args: { PROJECT: Payments.Api } }
     image: tourlab/payments:lab001
     ports: ["127.0.0.1:8446:8443"]
@@ -76,6 +77,7 @@ services:
       - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
     depends_on: { postgres: { condition: service_healthy } }
   notifications:
+    environment: { Messaging__Enabled: "${LAB_MESSAGING_ENABLED:-true}", NotificationWork__Enabled: "${LAB_WORK_ENABLED:-true}" }
     build: { context: ., args: { PROJECT: Notifications.Api } }
     image: tourlab/notifications:lab001
     ports: ["127.0.0.1:8447:8443"]

@@ -19,7 +19,7 @@ public sealed class ReservationHttpTests
         return await client.SendAsync(request);
     }
     [LocalFact]
-    public async Task ConcurrentHttpCreationOwnershipReplayAndLiveHoldWorkflowStopAtAwaitingPayment()
+    public async Task ConcurrentHttpCreationOwnershipReplayAndLiveConfirmedWorkflow()
     {
         var session = await ReservationTestSupport.SessionAsync(); var alice = await ReservationTestSupport.IdentityAsync("Alice");
         var bob = await ReservationTestSupport.IdentityAsync("Bob"); var admin = await ReservationTestSupport.IdentityAsync("Admin");
@@ -41,16 +41,16 @@ public sealed class ReservationHttpTests
             using var adminFilter = await Send(client, HttpMethod.Get, $"?userId={alice.Id}&status=AwaitingAvailability", admin.Token); Assert.Equal(HttpStatusCode.OK, adminFilter.StatusCode);
             using var cancel = await Send(client, HttpMethod.Post, $"/{accepted.ReservationId}/cancel", alice.Token, new { }, key); Assert.Equal(HttpStatusCode.NotFound, cancel.StatusCode);
             var state = "AwaitingAvailability";
-            for (var attempt = 0; attempt < 60 && state == "AwaitingAvailability"; attempt++)
+            for (var attempt = 0; attempt < 90 && state != "Confirmed"; attempt++)
             {
                 using var detail = await Send(client, HttpMethod.Get, $"/{accepted.ReservationId}", alice.Token);
                 state = (await detail.Content.ReadFromJsonAsync<ReservationView>())!.Status;
-                if (state == "AwaitingAvailability") await Task.Delay(500);
+                if (state != "Confirmed") await Task.Delay(500);
             }
-            Assert.Equal("AwaitingPayment", state);
+            Assert.Equal("Confirmed", state);
             await using var db = ReservationTestSupport.Reservations();
             Assert.Equal(1, await db.Idempotency.CountAsync(i => i.UserId == alice.Id && i.Key == key));
-            Assert.Equal(2, await db.History.CountAsync(h => h.SagaId == accepted.SagaId));
+            Assert.Equal(4, await db.History.CountAsync(h => h.SagaId == accepted.SagaId));
             var payment = await db.Outbox.AsNoTracking().SingleAsync(o => o.EffectKey == $"saga/{accepted.SagaId}/payment");
             for (var attempt = 0; attempt < 30 && payment.PublishedAtUtc is null; attempt++)
             { await Task.Delay(200); payment = await db.Outbox.AsNoTracking().SingleAsync(o => o.DeliveryId == payment.DeliveryId); }
@@ -58,6 +58,19 @@ public sealed class ReservationHttpTests
             var payload = MessageCodec.Payload<ProcessPayment>(MessageCodec.Parse(payment.EnvelopeJson)); Assert.Equal(alice.Id, payload.UserId); Assert.Equal(24690, payload.AmountMinor);
             using var replay = await Send(client, HttpMethod.Post, "", alice.Token, command, key); Assert.Equal(accepted, await replay.Content.ReadFromJsonAsync<ReservationAccepted>());
             await using var catalog = ReservationTestSupport.Catalog(); Assert.Equal(8, (await catalog.Sessions.SingleAsync(s => s.Id == session.Id)).AvailableSeats);
+            await using var payments = PaymentWorkflowTests.Payments();
+            Assert.Equal(1, await payments.Effects.CountAsync(e => e.Id == payload.PaymentOperationId && e.Status == "Succeeded"));
+            Shared.Contracts.NotificationView? delivered = null;
+            for (var attempt = 0; attempt < 40 && delivered?.Status != "Sent"; attempt++)
+            {
+                await using var notifications = PaymentWorkflowTests.Notifications();
+                var row = await notifications.Notifications.AsNoTracking().SingleOrDefaultAsync(n => n.ReservationId == accepted.ReservationId);
+                if (row is not null) delivered = Notifications.Api.NotificationEndpoints.View(row);
+                if (delivered?.Status != "Sent") await Task.Delay(250);
+            }
+            Assert.Equal("Sent", delivered?.Status);
+            await using var receipts = PaymentWorkflowTests.Notifications();
+            Assert.Equal(1, await receipts.Receipts.CountAsync(r => r.Id == delivered!.Id && r.DeliveredAtUtc != null));
         }
         finally { foreach (var response in requests) response.Dispose(); }
     }
@@ -75,9 +88,9 @@ public sealed class ReservationHttpTests
         for (var attempt = 0; attempt < 60; attempt++)
         {
             await using var db = ReservationTestSupport.Reservations(); states = await db.Reservations.Where(r => ids.Contains(r.Id)).Select(r => r.Status).ToArrayAsync();
-            if (states.All(s => s != "AwaitingAvailability")) break; await Task.Delay(500);
+            if (states.All(s => s is "Confirmed" or "Failed")) break; await Task.Delay(500);
         }
-        Assert.Single(states, s => s == "AwaitingPayment"); Assert.Single(states, s => s == "Failed");
+        Assert.Single(states, s => s == "Confirmed"); Assert.Single(states, s => s == "Failed");
         await using var catalog = ReservationTestSupport.Catalog(); Assert.Equal(0, (await catalog.Sessions.SingleAsync(s => s.Id == session.Id)).AvailableSeats);
         await using var reservations = ReservationTestSupport.Reservations(); var rejectedSaga = await reservations.Sagas.SingleAsync(s => ids.Contains(s.ReservationId) && s.State == "Failed");
         Assert.False(await reservations.Outbox.AnyAsync(o => o.EffectKey == $"saga/{rejectedSaga.Id}/payment"));

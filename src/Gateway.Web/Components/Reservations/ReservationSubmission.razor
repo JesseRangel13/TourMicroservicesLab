@@ -3,7 +3,7 @@
 @inject NavigationManager Navigation
 <fieldset disabled="@Busy">
     <legend>Request reservation</legend>
-    <p>Accepted unit price: @((UnitAmountMinor / 100m).ToString("0.00")) MXN. Payment completion is not implemented until LAB-004.</p>
+    <p>Accepted unit price: @((UnitAmountMinor / 100m).ToString("0.00")) MXN. Payments are simulated; confirmation requires a successful charge and confirmed seats.</p>
     <label>Participants (1–6) <input type="number" min="1" max="6" @bind="participants" disabled="@(intention is not null)" /></label>
     @if (Total is long total) { <p>Total to accept: @((total / 100m).ToString("0.00")) MXN</p> }
     else { <p role="alert">Select a valid quantity; the total must fit integer minor units.</p> }

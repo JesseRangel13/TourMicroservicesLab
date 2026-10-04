@@ -3,8 +3,9 @@
 LAB-001 implements the local foundation: five .NET 10 hosts, PostgreSQL schema isolation,
 durable ElasticMQ storage, HTTPS, Identity, and a basic Blazor Interactive Server account screen.
 LAB-002 adds Catalog tours/sessions, service-only quotes, transactional inventory handlers,
-durable publication intents, and basic catalog/admin screens. Reservations, payments, notifications,
-and transport workers remain pending LAB-003 onward.
+durable publication intents, and basic catalog/admin screens. LAB-003 adds durable Reservations and
+SQS Outbox/Inbox. LAB-004 adds independently durable simulated provider/sender effects, payment
+reconciliation, successful confirmation, declined-payment release and payment/notification screens.
 The specifications below and in `specs/` remain the source of truth.
 
 ## Run locally on Windows
@@ -59,9 +60,10 @@ or DbContext. `tools/Lab.Provisioner` is a separate local-only one-shot process 
 credentials; none are mounted into hosts. Each runtime role can perform DML only in its own schema,
 has no CREATE privilege, and has a maximum pool size of five. Each schema has its own migrator role.
 
-The provisioner applies checked-in Identity, Catalog and Reservations migrations before hosts start
-and seeds users and sample tours idempotently. Payments and Notifications schemas still have only
-`SchemaVersion`. Catalog and Reservations own separate Inbox/Outbox tables and runtime credentials.
+The provisioner applies checked-in migrations for all five owned schemas before hosts start
+and seeds users and sample tours idempotently. Each business service owns its own Inbox/Outbox,
+business tables and runtime credentials. Payments and Notifications also own independent simulated
+provider effects and sender receipts committed separately from application results.
 Catalog's existing Outbox intents remain intact and now dispatch through real ElasticMQ/SQS.
 Data Protection keys persist encrypted in the identity schema using a dedicated private certificate.
 
@@ -79,6 +81,7 @@ dotnet build --no-restore
 dotnet test --no-build # pure tests run; local integration/restart tests report SKIP explicitly
 ./scripts/Verify-Local.ps1 # enables real PostgreSQL and HTTP integration tests
 ./scripts/Verify-Messaging.ps1 # controlled crash windows; pauses/resumes Catalog/Reservations workers
+./scripts/Verify-Payments.ps1 # real transport/provider/sender workflow and independent-effect crash checks
 ./scripts/Verify-Restart.ps1 # stops/starts this Compose lab; preserves its data
 docker compose ps
 curl.exe --ssl-revoke-best-effort --cacert .local/certificates/ca.crt https://localhost:8443/health/live
@@ -93,6 +96,8 @@ Catalog migration/API/manual UI instructions are in `docs/catalog-execution.md`;
 are in `docs/evidence/LAB-002.md`.
 Reservations, queue initialization, staged consumers and manual UI checks are documented in
 `docs/reservations-execution.md`; actual LAB-003 results are in `docs/evidence/LAB-003.md`.
+Current LAB-004 consumer/migration instructions and the manual demo are in `docs/payments-execution.md`.
+All disruptive scripts now pause/resume all four consumers and payment/notification work processors.
 To regenerate runtime JSON after a path/config-generator change without rotating passwords/keys:
 `dotnet run --project tools/Lab.Provisioner -- refresh`.
 Use `config/private.example.json` as the secret-free shape reference. Never copy the privileged
@@ -108,10 +113,12 @@ Git and Docker build contexts. Linux/macOS setup scripts are not provided in LAB
 No AWS resources, paid services, real card payments, or SMTP deliveries were created.
 Neon/Fargate deployment is reserved for LAB-008/009 with fresh quota, cost, and permission checks.
 This foundation does not satisfy the full business UI or distributed-workflow acceptance criteria.
-The implemented reservation workflow is create → hold/reject → AwaitingPayment/Failed. A successful
-hold persists and publishes ProcessPayment; Payments consumption remains disabled until LAB-004.
-Cancellation, payment success, compensation and complete Saga timers are not implemented.
-Next task: **LAB-004**, durable fake Payments/Notifications and the successful confirmation workflow.
+The implemented workflow is create → hold → simulated payment → actual Catalog confirmation →
+Confirmed → simulated notification. A decline stays Compensating until Catalog confirms release,
+then becomes Failed. Unknown is reconciled with the original provider operation; it never means decline.
+Charged confirmation rejection retains Compensating with refund/release requirements. Refund execution,
+cancellation, late-result repair and complete Saga timers remain LAB-005.
+Next task: **LAB-005**, refunds, cancellation, deadlines, late outcomes and complete compensation.
 
 ## Original specification overview
 
@@ -121,7 +128,7 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
 The original package contained specifications only. This repository now includes LAB-001 through
-LAB-003; payment/notification processing, complete Saga recovery and AWS resources remain unimplemented.
+LAB-004; complete Saga recovery, refunds/cancellation and AWS resources remain unimplemented.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.

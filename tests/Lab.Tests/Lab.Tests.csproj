@@ -8,4 +8,8 @@
     <ProjectReference Include="../../tools/Lab.Provisioner/Lab.Provisioner.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Payments.Api\Payments.Api.csproj" />
+    <ProjectReference Include="..\..\src\Notifications.Api\Notifications.Api.csproj" />
+  </ItemGroup>
 </Project>

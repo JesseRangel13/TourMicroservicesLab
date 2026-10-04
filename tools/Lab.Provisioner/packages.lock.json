@@ -337,6 +337,18 @@
           "Yarp.ReverseProxy": "[2.3.0, )"
         }
       },
+      "notifications.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
+        }
+      },
+      "payments.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
+        }
+      },
       "reservations.api": {
         "type": "Project",
         "dependencies": {

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Xml.Linq;
 using Lab.Provisioner;
 using Npgsql;
+using Microsoft.EntityFrameworkCore;
 
 namespace Lab.Tests;
 
@@ -36,8 +37,23 @@ public sealed class PersistenceTests
         using var before = await client.GetAsync("https://localhost:8443/auth/me");
         Assert.Equal(HttpStatusCode.OK, before.StatusCode);
         var beforeIdentity = await before.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        // Component-level accepted Pending work, not a fabricated successful reservation workflow.
+        var pendingPayment = Guid.NewGuid(); var pendingNotificationEvent = Guid.NewGuid();
+        await using (var db = PaymentWorkflowTests.Payments())
+            await new Payments.Api.Application.PaymentConsumer(db).ConsumeAsync(Shared.Infrastructure.Messaging.MessageCodec.Parse(
+                Shared.Infrastructure.Messaging.MessageRoutes.Serialize(new Shared.Contracts.ProcessPayment(pendingPayment, Guid.NewGuid(), "restart-evidence", 100, "MXN"),
+                    Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid())), default);
+        await using (var db = PaymentWorkflowTests.Notifications())
+            await new Notifications.Api.Application.NotificationConsumer(db, TimeProvider.System).ConsumeAsync(Shared.Infrastructure.Messaging.MessageCodec.Parse(
+                Shared.Infrastructure.Messaging.MessageRoutes.Serialize(new Shared.Contracts.ReservationConfirmed(Guid.NewGuid(), "restart-evidence", "Simulated sender component restart evidence"),
+                    pendingNotificationEvent, Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid())), default);
+        Guid pendingNotification;
+        await using (var db = PaymentWorkflowTests.Notifications())
+            pendingNotification = (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.Notifications, n => n.SourceEventId == pendingNotificationEvent)).Id;
         var catalogBefore = await CatalogSnapshotAsync();
         var reservationsBefore = await ReservationsSnapshotAsync();
+        var paymentsBefore = await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "Inbox", "Outbox", "Faults", "Audit"]);
+        var notificationsBefore = await WorkSnapshotAsync("notifications", ["Notifications", "DeliveryReceipts", "Inbox", "Outbox", "Faults", "Audit"]);
         await DockerAsync("stop");
         await DockerAsync("start");
         var alive = false;
@@ -67,7 +83,24 @@ public sealed class PersistenceTests
         Assert.Equal(3L, await count.ExecuteScalarAsync());
         Assert.Equal(catalogBefore, await CatalogSnapshotAsync());
         Assert.Equal(reservationsBefore, await ReservationsSnapshotAsync());
+        Assert.Equal(paymentsBefore, await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "Inbox", "Outbox", "Faults", "Audit"]));
+        Assert.Equal(notificationsBefore, await WorkSnapshotAsync("notifications", ["Notifications", "DeliveryReceipts", "Inbox", "Outbox", "Faults", "Audit"]));
+        await using (var db = FreshPayments())
+            Assert.True(await new Payments.Api.Application.PaymentProcessor(db,
+                new Payments.Api.Application.DurableFakeProvider(new PaymentWorkflowTests.Factory<Payments.Api.Persistence.PaymentsDb>(FreshPayments), TimeProvider.System),
+                TimeProvider.System).ProcessAsync(default, pendingPayment));
+        await using (var db = FreshNotifications())
+            Assert.True(await new Notifications.Api.Application.NotificationProcessor(db,
+                new Notifications.Api.Application.DurableFakeSender(new PaymentWorkflowTests.Factory<Notifications.Api.Persistence.NotificationsDb>(FreshNotifications), TimeProvider.System),
+                TimeProvider.System).ProcessAsync(default, pendingNotification));
+        await using (var db = FreshPayments()) Assert.NotEqual("Pending", (await db.Operations.SingleAsync(o => o.Id == pendingPayment)).Status);
+        await using (var db = FreshNotifications()) Assert.True(await db.Notifications.AnyAsync(n => n.Id == pendingNotification));
     }
+    // The harness survives stop/start; restarted hosts have new pools. These recovery contexts emulate new connections explicitly.
+    private static Payments.Api.Persistence.PaymentsDb FreshPayments() => new(new DbContextOptionsBuilder<Payments.Api.Persistence.PaymentsDb>()
+        .UseNpgsql(new NpgsqlConnectionStringBuilder(ReservationTestSupport.Connection("payments")) { Pooling = false }.ConnectionString).Options);
+    private static Notifications.Api.Persistence.NotificationsDb FreshNotifications() => new(new DbContextOptionsBuilder<Notifications.Api.Persistence.NotificationsDb>()
+        .UseNpgsql(new NpgsqlConnectionStringBuilder(ReservationTestSupport.Connection("notifications")) { Pooling = false }.ConnectionString).Options);
     private static async Task<string> CatalogSnapshotAsync()
     {
         var settings = IntegrationTests.Settings;
@@ -112,6 +145,15 @@ public sealed class PersistenceTests
         using var response = await client.PostAsync("", new FormUrlEncodedContent(values));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return XDocument.Parse(await response.Content.ReadAsStringAsync());
+    }
+    private static async Task<string> WorkSnapshotAsync(string schema, string[] tables)
+    {
+        // Fixed test-owned identifiers only; every connection uses that service's isolated runtime role.
+        var connectionOptions = new NpgsqlConnectionStringBuilder(ReservationTestSupport.Connection(schema)) { Pooling = false };
+        await using var connection = new NpgsqlConnection(connectionOptions.ConnectionString); await connection.OpenAsync();
+        var pieces = tables.Select(table => $"(SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text FROM {schema}.\"{table}\" t)");
+        await using var command = new NpgsqlCommand("SELECT md5(" + string.Join(" || ", pieces) + ")", connection);
+        return (string)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Work snapshot missing."));
     }
     private static async Task DockerAsync(string operation)
     {

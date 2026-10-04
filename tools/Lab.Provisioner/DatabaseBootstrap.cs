@@ -86,7 +86,16 @@ public static class DatabaseBootstrap
             o => o.MigrationsHistoryTable("__EFMigrationsHistory", "reservations")).Options;
         await using (var db = new ReservationsDb(reservationsMigration)) await db.Database.MigrateAsync(ct);
         await ExecuteAsync(admin, "REVOKE ALL ON reservations.\"__EFMigrationsHistory\" FROM reservations_runtime;", ct);
-        Console.WriteLine("Schemas/roles provisioned, Identity, Catalog and Reservations migrated, and samples seeded without resetting existing data.");
+        var paymentsMigration = new DbContextOptionsBuilder<Payments.Api.Persistence.PaymentsDb>().UseNpgsql(
+            LocalConfiguration.Connection("localhost", "payments_migrator", settings.MigrationPasswords["payments"], certDir),
+            o => o.MigrationsHistoryTable("__EFMigrationsHistory", "payments")).Options;
+        await using (var db = new Payments.Api.Persistence.PaymentsDb(paymentsMigration)) await db.Database.MigrateAsync(ct);
+        var notificationsMigration = new DbContextOptionsBuilder<Notifications.Api.Persistence.NotificationsDb>().UseNpgsql(
+            LocalConfiguration.Connection("localhost", "notifications_migrator", settings.MigrationPasswords["notifications"], certDir),
+            o => o.MigrationsHistoryTable("__EFMigrationsHistory", "notifications")).Options;
+        await using (var db = new Notifications.Api.Persistence.NotificationsDb(notificationsMigration)) await db.Database.MigrateAsync(ct);
+        await ExecuteAsync(admin, "REVOKE ALL ON payments.\"__EFMigrationsHistory\" FROM payments_runtime; REVOKE ALL ON notifications.\"__EFMigrationsHistory\" FROM notifications_runtime;", ct);
+        Console.WriteLine("All five owned schemas migrated and samples seeded without resetting existing data.");
     }
     private static void Ensure(IdentityResult result)
     {

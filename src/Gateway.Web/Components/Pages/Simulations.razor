@@ -1,0 +1,21 @@
+@page "/admin/simulations"
+@attribute [Authorize(Roles="Admin")]
+@rendermode InteractiveServer
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Business.BusinessClient Client
+<h1>Bounded simulated controls</h1>
+<p>Only fictional provider/sender modes are changed, never Saga outcomes. Accepted work keeps its selected mode. Controls require LabFeaturesEnabled on the service.</p>
+<label>Service <select @bind="payments" @bind:after="ServiceChanged"><option value="true">Payments</option><option value="false">Notifications</option></select></label>
+<label>Mode <select @bind="mode">@if(payments){<option>Success</option><option>Decline</option><option>TimeoutAfterCharge</option>}else{<option>None</option><option>FailureThenSuccess</option>}</select></label>
+<label>Occurrences (0–100) <input type="number" min="0" max="100" @bind="occurrences" /></label>
+<button disabled="@Busy" @onclick="Read">Read current control</button><button disabled="@Busy" @onclick="Apply">Apply mode</button><button disabled="@Busy" @onclick="Reset">Reset service</button>
+@if(current is not null){<p>Persisted @current.Mode; remaining @current.Remaining</p>}
+@if(Error is not null){<p role="alert">@Error</p>}
+<p>UnknownUntilAdminResolution, refund failure, cancellation and complete compensation are LAB-005. No crash or arbitrary event publication control is exposed.</p>
+@code {
+    private bool payments=true;private string mode="Success";private int occurrences=1;private Shared.Contracts.FaultView? current;
+    private void ServiceChanged(){mode=payments?"Success":"None";current=null;}
+    private Task Read()=>RunAsync(async ct=>current=await Client.FaultAsync(payments,ct));
+    private Task Apply()=>RunAsync(async ct=>current=await Client.SetFaultAsync(payments,new(mode,occurrences),ct));
+    private Task Reset()=>RunAsync(async ct=>current=await Client.ResetFaultAsync(payments,ct));
+}

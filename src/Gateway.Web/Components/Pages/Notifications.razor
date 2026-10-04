@@ -1,0 +1,32 @@
+@page "/notifications"
+@page "/notifications/{Id:guid}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Business.BusinessClient Client
+<h1>Simulated notifications</h1><p>No email is sent. Sent means a durable fictional delivery receipt.</p>
+<button disabled="@Busy" @onclick="Load">Reload</button>
+@if(Error is not null){<p role="alert">@Error</p>}
+@if(Id is null && result is not null)
+{
+    <p>@result.Total records; page @(page); optional reservation filter @ReservationId</p>
+    <label>Reservation ID <input @bind="filter" /></label><button disabled="@Busy" @onclick="Filter">Filter</button>
+    <ul>@foreach(var row in result.Items){<li><a href="@($"/notifications/{row.Id}")">@row.Subject</a> — @row.Status</li>}</ul>
+    <button disabled="@(Busy || page<=1)" @onclick="Previous">Previous</button><button disabled="@(Busy || (long)page*10>=result.Total)" @onclick="Next">Next</button>
+}
+else if(item is not null){<h2>@item.Subject</h2><p>@item.Body</p><p>@item.Status; created @item.CreatedAtUtc; simulated delivery @item.SentAtUtc</p><a href="@($"/reservations/{item.ReservationId}")">Reservation timeline</a>}
+<AuthorizeView Roles="Admin"><a href="/admin/simulations">Select bounded simulated sender failure</a></AuthorizeView>
+@code {
+    [Parameter] public Guid? Id {get;set;}
+    [SupplyParameterFromQuery(Name="reservationId")] public Guid? ReservationId {get;set;}
+    private Shared.Contracts.NotificationPage? result;private Shared.Contracts.NotificationView? item;
+    private int page=1;private Task? polling;private string filter="";
+    protected override Task OnParametersSetAsync(){filter=ReservationId?.ToString()??"";return Load();}
+    private Task Filter()=>RunAsync(async ct=>{if(!string.IsNullOrWhiteSpace(filter) && !Guid.TryParse(filter,out _))throw new Gateway.Web.Catalog.CatalogClientException("Enter a valid reservation ID.");ReservationId=string.IsNullOrWhiteSpace(filter)?null:Guid.Parse(filter);page=1;result=await Client.NotificationsAsync(page,ReservationId,ct);});
+    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender && Id is not null)polling=PollAsync();return Task.CompletedTask;}
+    private Task Load()=>RunAsync(async ct=>{if(Id is Guid id)item=await Client.NotificationAsync(id,ct);else result=await Client.NotificationsAsync(page,ReservationId,ct);});
+    private Task Previous(){page--;return Load();}private Task Next(){page++;return Load();}
+    private async Task PollAsync(){try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(item?.Status=="Pending" && await timer.WaitForNextTickAsync(Lifetime.Token))await InvokeAsync(async()=>{await Load();StateHasChanged();});}catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}}
+    public async ValueTask DisposeAsync(){Lifetime.Cancel();if(polling is not null)await polling;Dispose();}
+}

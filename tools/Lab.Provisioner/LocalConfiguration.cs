@@ -74,10 +74,10 @@ public static class LocalConfiguration
             ["Jwt"] = new Dictionary<string, string> { ["PublicKeyPath"] = CertificatePath(certificates, "jwt.pub") },
             ["Kestrel"] = new { Endpoints = new { Https = new { Url = $"https://{(container ? "0.0.0.0" : "localhost")}:{port}", Certificate = new { Path = CertificatePath(certificates, $"{service}.pfx") } } } },
             ["AllowedHosts"] = $"localhost;127.0.0.1;lab.tours.test;{service};{service}.tourlab.internal",
-            ["LabFeaturesEnabled"] = false
+            ["LabFeaturesEnabled"] = service is "payments" or "notifications"
         };
         if (service == "catalog") config["ServiceJwt"] = new { PublicKeyPath = CertificatePath(certificates, "reservations-signing.pub") };
-        if (service is "catalog" or "reservations")
+        if (service is "catalog" or "reservations" or "payments" or "notifications")
         {
             var endpoint = container ? "http://elasticmq:9324" : "http://localhost:9324";
             config["Messaging"] = new { Enabled = true, Local = true, Endpoint = endpoint, Region = "us-east-1",

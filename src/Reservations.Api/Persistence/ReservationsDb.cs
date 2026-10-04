@@ -29,6 +29,11 @@ public sealed class ReservationSaga
     public DateTimeOffset DeadlineUtc { get; set; }
     public DateTimeOffset? HoldExpiresAtUtc { get; set; }
     public string? FailureReason { get; set; }
+    public string? ProviderReference { get; set; }
+    public bool RefundRequired { get; set; }
+    public bool RefundCompleted { get; set; }
+    public bool SeatsReleaseRequired { get; set; }
+    public bool SeatsReleased { get; set; }
     public long Version { get; set; } = 1;
 }
 public sealed class IdempotencyRequest

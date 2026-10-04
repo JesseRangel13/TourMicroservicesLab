@@ -13,7 +13,8 @@
     <p>@reservation.Id — @reservation.Status</p><p>@reservation.Reason</p>
     <p>Participants: @reservation.Participants; agreed total: @((reservation.TotalAmountMinor / 100m).ToString("0.00")) @reservation.Currency</p>
     <p>Departure (UTC): @reservation.StartsAtUtc.ToString("u")</p>
-    <p>AwaitingPayment means a payment command is queued. Payment success, cancellation and compensation are not implemented yet.</p>
+    <p>Payments and notifications are simulated. Confirmation requires both a successful simulated charge and Catalog seat confirmation. Cancellation, refunds and complete compensation remain LAB-005.</p>
+    <p><a href="@($"/payments?reservationId={Id}")">Inspect simulated payment</a> · <a href="@($"/notifications?reservationId={Id}")">Inspect simulated notifications</a></p>
     <h2>Timeline</h2><ul>@foreach (var item in timeline) { <li>@item.OccurredAtUtc.ToString("u"): @item.From → @item.To @item.Reason</li> }</ul>
 }
 @code {

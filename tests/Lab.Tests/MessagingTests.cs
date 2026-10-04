@@ -23,7 +23,7 @@ public sealed class MessagingFactAttribute : FactAttribute
 public sealed class MessagingTests
 {
     private sealed class SimulatedCrash : Exception;
-    private sealed class Lab : IAsyncDisposable
+    internal sealed class Lab : IAsyncDisposable
     {
         internal AmazonSQSClient Sqs { get; } = new(new BasicAWSCredentials("local-simulation", "local-simulation"),
             new AmazonSQSConfig { ServiceURL = "http://localhost:9324", AuthenticationRegion = "us-east-1", Timeout = TimeSpan.FromSeconds(25), MaxErrorRetry = 0 });
@@ -54,8 +54,8 @@ public sealed class MessagingTests
         }
         public ValueTask DisposeAsync() { Sqs.Dispose(); return ValueTask.CompletedTask; } // evidence queues/messages are retained
     }
-    private sealed record Creation(ReservationAccepted Accepted, SessionView Session, Guid HoldDelivery, Guid HoldId);
-    private static async Task<Creation> CreateAsync()
+    internal sealed record Creation(ReservationAccepted Accepted, SessionView Session, Guid HoldDelivery, Guid HoldId);
+    internal static async Task<Creation> CreateAsync()
     {
         var session = await ReservationTestSupport.SessionAsync(1); var alice = await ReservationTestSupport.IdentityAsync("Alice");
         using var client = IntegrationTests.CreateClient(); using var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:8445/v1/reservations")

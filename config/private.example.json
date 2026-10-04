@@ -23,5 +23,7 @@
   },
   "Kestrel": { "Endpoints": { "Https": { "Url": "https://localhost:8443", "Certificate": { "Path": "<private service PFX path>" } } } },
   "AllowedHosts": "localhost;lab.tours.test;gateway.tourlab.internal",
+  "PaymentWork": { "Enabled": true },
+  "NotificationWork": { "Enabled": true },
   "LabFeaturesEnabled": false
 }

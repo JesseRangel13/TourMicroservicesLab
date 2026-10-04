@@ -4,7 +4,7 @@
 @inherits Gateway.Web.Catalog.CatalogComponent
 @inject Gateway.Web.Reservations.ReservationClient ReservationsClient
 <h1>Reservations</h1>
-<p>Payment completion and cancellation are not implemented yet. AwaitingPayment is pending LAB-004.</p>
+<p>Payments and notifications are simulated. Cancellation, refunds and full compensation remain LAB-005.</p>
 <AuthorizeView Roles="Admin"><label>User ID filter <input @bind="userId" /></label><label>Status filter <input @bind="status" /></label></AuthorizeView>
 <button disabled="@Busy" @onclick="Search">Reload / filter</button>
 @if (Busy) { <p role="status">Loading…</p> }

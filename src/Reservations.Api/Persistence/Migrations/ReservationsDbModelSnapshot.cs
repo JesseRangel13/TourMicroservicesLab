@@ -224,11 +224,26 @@ namespace Reservations.Api.Persistence.Migrations
                     b.Property<Guid>("PaymentOperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ProviderReference")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("RefundCompleted")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("RefundOperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("RefundRequired")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("ReservationId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("SeatsReleaseRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SeatsReleased")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("State")
                         .IsRequired()

@@ -433,7 +433,21 @@
         "dependencies": {
           "Catalog.Api": "[1.0.0, )",
           "Gateway.Web": "[1.0.0, )",
+          "Notifications.Api": "[1.0.0, )",
+          "Payments.Api": "[1.0.0, )",
           "Reservations.Api": "[1.0.0, )"
+        }
+      },
+      "notifications.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
+        }
+      },
+      "payments.api": {
+        "type": "Project",
+        "dependencies": {
+          "Shared.Infrastructure": "[1.0.0, )"
         }
       },
       "reservations.api": {

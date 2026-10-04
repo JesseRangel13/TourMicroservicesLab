@@ -14,7 +14,7 @@ public sealed class PgOutboxStore : IOutboxStore
     private readonly Guid? selectedDelivery;
     public PgOutboxStore(string connectionString, string schema, Guid? selectedDelivery = null)
     {
-        if (schema is not ("catalog" or "reservations")) throw new ArgumentException("Invalid Outbox owner.", nameof(schema));
+        if (schema is not ("catalog" or "reservations" or "payments" or "notifications")) throw new ArgumentException("Invalid Outbox owner.", nameof(schema));
         this.connectionString = connectionString; this.schema = schema;
         this.selectedDelivery = selectedDelivery;
     }

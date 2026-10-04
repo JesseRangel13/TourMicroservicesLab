@@ -19,7 +19,7 @@ public sealed class MessagingOptions
     public int VisibilitySeconds { get; set; } = 60;
     public int WaitSeconds { get; set; } = 20;
     public bool IsValid() => !Enabled || (LeaseSeconds >= 60 && VisibilitySeconds >= 60 && WaitSeconds is >= 0 and <= 20
-        && InputQueue is "tourlab-catalog" or "tourlab-reservations"
+        && InputQueue is "tourlab-catalog" or "tourlab-reservations" or "tourlab-payments" or "tourlab-notifications"
         && new[] { "catalog", "reservations", "payments", "notifications" }.All(s => QueueUrls.TryGetValue("tourlab-" + s, out var url) && Uri.TryCreate(url, UriKind.Absolute, out var uri) && (Local || uri.Scheme == "https"))
         && (!Local || Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint) && endpoint.Scheme == "http" && endpoint.Host is "localhost" or "127.0.0.1" or "elasticmq"));
 }
