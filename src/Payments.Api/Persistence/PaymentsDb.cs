@@ -35,6 +35,8 @@ public sealed class PaymentsDb(DbContextOptions<PaymentsDb> options) : DbContext
 {
     public DbSet<PaymentOperation> Operations => Set<PaymentOperation>();
     public DbSet<ProviderEffect> Effects => Set<ProviderEffect>();
+    public DbSet<RefundOperation> Refunds => Set<RefundOperation>();
+    public DbSet<ProviderRefund> ProviderRefunds => Set<ProviderRefund>();
     public DbSet<PaymentOutbox> Outbox => Set<PaymentOutbox>();
     public DbSet<PaymentFault> Faults => Set<PaymentFault>();
     public DbSet<PaymentAudit> Audit => Set<PaymentAudit>();
@@ -45,6 +47,8 @@ public sealed class PaymentsDb(DbContextOptions<PaymentsDb> options) : DbContext
             b.Property(x=>x.Version).IsConcurrencyToken(); b.Property(x=>x.UserId).HasMaxLength(128); b.HasIndex(x=>new {x.UserId,x.ReservationId});
             b.HasIndex(x=>new {x.Status,x.NextReconcileAtUtc,x.LeaseUntilUtc}); });
         model.Entity<ProviderEffect>(b=> {b.ToTable("ProviderEffects"); b.HasKey(x=>x.Id); b.Property(x=>x.RequestHash).HasMaxLength(64);});
+        model.Entity<RefundOperation>(b => { b.ToTable("RefundOperations", t => t.HasCheckConstraint("CK_Refund", "\"AmountMinor\">0 AND \"Currency\"='MXN' AND \"Version\">0")); b.HasKey(x=>x.Id); b.HasIndex(x=>x.PaymentOperationId).IsUnique(); b.Property(x=>x.Version).IsConcurrencyToken(); b.HasIndex(x=>new {x.Status,x.NextAttemptAtUtc}); });
+        model.Entity<ProviderRefund>(b => { b.ToTable("ProviderRefunds"); b.HasKey(x=>x.Id); b.HasIndex(x=>x.PaymentOperationId).IsUnique(); });
         PaymentStorage.Configure(model);
     }
 }

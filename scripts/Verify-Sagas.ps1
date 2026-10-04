@@ -1,19 +1,24 @@
+param(
+    [string]$Filter = 'FullyQualifiedName~SagaWorkflowTests|FullyQualifiedName~PaymentWorkflowTests',
+    [string]$ResultFile = 'lab005-sagas.trx'
+)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $env:LAB_TEST_ROOT = (Get-Location).Path
-$env:LAB_RESTART_TEST = '1'
+$env:LAB_PAYMENT_TEST = '1'
 $env:LAB_MESSAGING_ENABLED = 'false'
 $env:LAB_WORK_ENABLED = 'false'
 try {
     docker compose up -d --wait catalog reservations payments notifications
-    if ($LASTEXITCODE -ne 0) { throw 'Could not pause workers for a stable persistence snapshot.' }
-    dotnet test --filter 'FullyQualifiedName~PersistenceTests' --logger 'trx;LogFileName=lab005-restart.trx'
-    if ($LASTEXITCODE -ne 0) { throw 'Persistence verification failed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Could not pause hosted workers for controlled LAB-005 checks.' }
+    dotnet test --filter $Filter --logger "trx;LogFileName=$ResultFile"
+    if ($LASTEXITCODE -ne 0) { throw 'LAB-005 workflow verification failed.' }
 } finally {
     Remove-Item Env:LAB_TEST_ROOT -ErrorAction SilentlyContinue
-    Remove-Item Env:LAB_RESTART_TEST -ErrorAction SilentlyContinue
+    Remove-Item Env:LAB_PAYMENT_TEST -ErrorAction SilentlyContinue
     Remove-Item Env:LAB_MESSAGING_ENABLED -ErrorAction SilentlyContinue
     Remove-Item Env:LAB_WORK_ENABLED -ErrorAction SilentlyContinue
     docker compose up -d --wait catalog reservations payments notifications
     if ($LASTEXITCODE -ne 0) { throw 'Could not resume hosted workers.' }
 }
+

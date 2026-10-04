@@ -86,3 +86,38 @@ No fake-provider outcome uses randomness or an authoritative volatile dictionary
 MXN amounts remain the money boundary. Refund methods reject unsupported execution instead of
 returning a fictitious refund. Complete compensation is LAB-005; no generic repository, event bus,
 dispatcher library or additional infrastructure was added. No topic is marked mastered.
+
+## LAB-005 concrete examples
+
+| Topic | Actual code paths | Exercise / interview question |
+|---|---|---|
+| 2/4 Classes, records, nullable outcomes | `src/Payments.Api/Persistence/RefundOperation.cs`; `src/Shared.Contracts/PaymentContracts.cs` | Distinguish mutable durable work from immutable payloads. Why does a nullable refund lookup mean unresolved work rather than a failed refund? |
+| 9/10 Async, cancellation, scopes, Options | `src/Reservations.Api/Application/SagaRecovery.cs`; `src/Payments.Api/Application/RefundProcessing.cs`; `PaymentWorker.cs` | Trace cancellation through scoped work, independent provider context and result persistence. Who discovers work after process restart? Validate bounded deadline/lookup settings. |
+| 11/16 Pipeline and security | `src/Reservations.Api/ReservationEndpoints.cs`; `SagaCommands.cs`; `src/Payments.Api/PaymentEndpoints.cs`; `src/Catalog.Api/CatalogEndpoints.cs` | Explain owner/Admin authorization, 404 isolation, mandatory cancellation key, lab enablement, rate limiting and provider-only resolution auditing. |
+| 12/14 EF, transactions, concurrency | `src/Reservations.Api/Messaging/ReservationConsumer.cs`; `SagaRecovery.cs`; `src/Payments.Api/Application/RefundProcessing.cs` | Explain Saga row locks plus Version tokens; independent provider commit; leased claims and owner fencing. Race refund/release results with separate contexts. |
+| 13 Failure-oriented tests | `tests/Lab.Tests/SagaWorkflowTests.cs`; `PersistenceTests.cs`; `scripts/Verify-Sagas.ps1` | Compare real HTTPS/transport flows, a post-Failed recovery-handler fixture, deterministic clock tests and actual Compose restart. Which layer does each result prove? |
+| 15 CQRS and explicit recovery | `src/Reservations.Api/Application/SagaCommands.cs`; `SagaRecovery.cs`; `src/Payments.Api/Application/RefundProcessing.cs` | Why do cancel commands accept durable work rather than perform cross-service effects inside the HTTP transaction? Why no generic repository or dispatcher library? |
+| 16 Durable idempotency and uncertainty | `RefundAcceptance`; `DurableFakeProvider.RefundAsync`; `SagaRecovery.CompleteAsync` | Separate MessageId from RefundOperationId, original charge identity and terminal notice identity. Explain why uncertain payments block terminal failure. |
+| 5/7/9 Typed UI clients and resources | `src/Gateway.Web/Business/BusinessClient.cs`; `Reservations/ReservationClient.cs`; `Components/Pages/Sagas.razor`; `ReservationDetail.razor`; `Payments.razor` | Explain per-request principal/JWT, paginated projections, intention keys and joined cancellable polling. No DbContext belongs to a circuit. |
+
+### Five interview answers grounded in LAB-005
+
+1. **Why can a payment timeout not be treated as a decline?** The provider may commit before the
+   caller observes its response. `DurableFakeProvider` and `PaymentProcessor` use separate transactions;
+   Unknown leads to lookup by the same operation ID, never a second charge.
+2. **How do you avoid a second refund after a crash?** `RefundProcessor` first calls status lookup.
+   ProviderRefunds has a unique original-payment link and request hash; a committed provider effect
+   survives an application-result crash. Leases fence competing application workers.
+3. **Why are compensation flags independent?** Refund and release have different owners and transactions.
+   `SagaRecovery.CompleteAsync` waits for both required confirmations, regardless of arrival order;
+   neither a sent command nor a timeout proves completion.
+4. **How do multiple replicas handle a deadline/result race?** Both acquire the Saga row lock and
+   reload state before deciding. Version is checked on writes. A confirmation that wins first remains
+   Confirmed; abandonment that wins first prevents late confirmation from resurrecting success.
+5. **What does ManualReview mean?** Automatic recovery could not verify completion within its bounded
+   window. Admin changes only the fictional provider outcome or retries missing compensation with
+   original IDs. It is an operational obligation, not a successful refund or proof of no charge.
+
+Historical LAB-003/004 sections describe their staged boundaries. Current LAB-005 supplies refund,
+cancellation and deadline recovery. Full diagnostics/observability remains LAB-006; automated browser
+circuit isolation remains LAB-007. No learning topic is automatically marked mastered.

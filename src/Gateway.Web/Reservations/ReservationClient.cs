@@ -16,6 +16,7 @@ public sealed class ReservationClient(IHttpClientFactory factory, Authentication
     public Task<ReservationPage> ListAsync(int page, string? userId, string? status, CancellationToken ct) => SendAsync<ReservationPage>(HttpMethod.Get,
         $"?page={page}&pageSize=10{(string.IsNullOrEmpty(userId) ? "" : "&userId=" + Uri.EscapeDataString(userId))}{(string.IsNullOrEmpty(status) ? "" : "&status=" + Uri.EscapeDataString(status))}", null, null, ct);
     public Task<ReservationView> DetailAsync(Guid id, CancellationToken ct) => SendAsync<ReservationView>(HttpMethod.Get, $"/{id}", null, null, ct);
+    public Task<ReservationAccepted> CancelAsync(Guid id,string key,CancellationToken ct)=>SendAsync<ReservationAccepted>(HttpMethod.Post,$"/{id}/cancel",null,key,ct);
     public Task<TransitionView[]> TimelineAsync(Guid id, CancellationToken ct) => SendAsync<TransitionView[]>(HttpMethod.Get, $"/{id}/timeline", null, null, ct);
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, string? key, CancellationToken ct)
     {

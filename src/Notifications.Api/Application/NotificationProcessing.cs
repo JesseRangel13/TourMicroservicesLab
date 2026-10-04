@@ -32,6 +32,7 @@ public sealed class NotificationConsumer(NotificationsDb db,TimeProvider clock) 
     {
         Guid reservation; string user; string body;
         if(envelope.Type=="ReservationConfirmed") {var p=MessageCodec.Payload<ReservationConfirmed>(envelope); reservation=p.ReservationId;user=p.UserId;body=p.Summary;}
+        else if(envelope.Type=="ReservationCancelled") {var p=MessageCodec.Payload<ReservationCancelled>(envelope);reservation=p.ReservationId;user=p.UserId;body=p.Summary;}
         else if(envelope.Type=="ReservationFailed") {var p=MessageCodec.Payload<ReservationFailed>(envelope);reservation=p.ReservationId;user=p.UserId;body=p.Reason;}
         else throw new PoisonMessageException("NotificationHandlerNotImplemented");
         if(reservation==Guid.Empty || string.IsNullOrWhiteSpace(user) || user.Length>128 || string.IsNullOrWhiteSpace(body) || body.Length>1000) throw new PoisonMessageException("InvalidNotification");
@@ -80,4 +81,3 @@ public sealed class NotificationProcessor(NotificationsDb db,INotificationSender
         await db.SaveChangesAsync(ct);await commit.CommitAsync(ct);return true;
     }
 }
-

@@ -37,7 +37,14 @@ public static class CatalogRules
     public static async Task AddIntentAsync<T>(CatalogDb db, string effectKey, T payload, DateTimeOffset now,
         Guid? sagaId, Guid correlationId, Guid causationId, CancellationToken ct)
     {
-        if (db.Outbox.Local.Any(x => x.EffectKey == effectKey) || await db.Outbox.AnyAsync(x => x.EffectKey == effectKey, ct)) return;
+        var existing=db.Outbox.Local.SingleOrDefault(x=>x.EffectKey==effectKey)??await db.Outbox.SingleOrDefaultAsync(x=>x.EffectKey==effectKey,ct);
+        if(existing is not null)
+        {
+            // A new release command may repair a lost/DLQ response without restoring inventory again.
+            if(payload is SeatsReleased && existing.PublishedAtUtc is not null)
+            {existing.PublishedAtUtc=null;existing.LeaseOwner=null;existing.LeaseUntilUtc=null;}
+            return;
+        }
         var messageId = Guid.NewGuid(); var deliveryId = Guid.NewGuid();
         var envelope = new IntegrationEnvelope<T>(messageId, deliveryId, typeof(T).Name, 1, now,
             sagaId, correlationId, causationId, Activity.Current?.Id, payload);

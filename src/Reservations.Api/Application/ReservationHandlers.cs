@@ -27,7 +27,7 @@ public static class ReservationIntents
         }
     }
 }
-public sealed class ReservationCreator(ReservationsDb db, ICatalogQuoteClient catalog, TimeProvider clock)
+public sealed class ReservationCreator(ReservationsDb db, ICatalogQuoteClient catalog, TimeProvider clock,SagaRecoveryOptions? options=null)
 {
     public static Guid QuoteRequestId(string user, string key)
     {
@@ -54,7 +54,7 @@ public sealed class ReservationCreator(ReservationsDb db, ICatalogQuoteClient ca
             Participants = command.Participants, QuoteId = quote.QuoteId, UnitAmountMinor = quote.UnitAmountMinor,
             TotalAmountMinor = quote.TotalAmountMinor, Currency = quote.Currency, StartsAtUtc = quote.Session.StartsAtUtc, CreatedAtUtc = now };
         var saga = new ReservationSaga { Id = Guid.NewGuid(), ReservationId = reservation.Id, HoldId = Guid.NewGuid(),
-            PaymentOperationId = Guid.NewGuid(), RefundOperationId = Guid.NewGuid(), DeadlineUtc = now.AddSeconds(30) };
+            PaymentOperationId = Guid.NewGuid(), RefundOperationId = Guid.NewGuid(), DeadlineUtc = now.AddSeconds(options?.AvailabilitySeconds??30) };
         var result = new IdempotencyRequest { UserId = userId, Key = key, RequestHash = hash, ResourceId = reservation.Id,
             Location = $"/api/reservations/v1/reservations/{reservation.Id}",
             ResponseBody = JsonSerializer.Serialize(new ReservationAccepted(reservation.Id, "AwaitingAvailability", saga.Id), MessageCodec.Json) };
@@ -89,7 +89,12 @@ public sealed class ReservationQueries(ReservationsDb db)
         var total = await query.CountAsync(ct); var rows = await query.OrderByDescending(r => r.CreatedAtUtc).ThenBy(r => r.Id).Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(ct);
         return new(rows.Select(View).ToArray(), total, page, pageSize);
     }
-    public async Task<ReservationView> DetailAsync(Guid id, string caller, bool admin, CancellationToken ct) => View(await FindAsync(id, caller, admin, ct));
+    public async Task<ReservationView> DetailAsync(Guid id, string caller, bool admin, CancellationToken ct)
+    {
+        var reservation=await FindAsync(id,caller,admin,ct);
+        var saga=await db.Sagas.AsNoTracking().SingleAsync(x=>x.ReservationId==id,ct);
+        return View(reservation) with {Compensation=new(saga.RefundRequired,saga.RefundCompleted,saga.SeatsReleaseRequired,saga.SeatsReleased)};
+    }
     private Task<Reservation?> QueryAsync(Guid id, string caller, bool admin, CancellationToken ct) => db.Reservations.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id && (admin || r.UserId == caller), ct);
     private async Task<Reservation> FindAsync(Guid id, string caller, bool admin, CancellationToken ct) => await QueryAsync(id, caller, admin, ct) ?? throw new ReservationProblem(404, "ReservationNotFound");
     public async Task<TransitionView[]> TimelineAsync(Guid id, string caller, bool admin, CancellationToken ct)

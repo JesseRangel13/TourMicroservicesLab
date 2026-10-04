@@ -50,9 +50,12 @@ public sealed class PersistenceTests
         Guid pendingNotification;
         await using (var db = PaymentWorkflowTests.Notifications())
             pendingNotification = (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.Notifications, n => n.SourceEventId == pendingNotificationEvent)).Id;
+        await using var sagaLab=new MessagingTests.Lab();await sagaLab.InitAsync();
+        var repairing=await SagaWorkflowTests.RestartCompensation(sagaLab);
+        var repairingSaga=await SagaWorkflowTests.Saga(repairing.Accepted.SagaId);
         var catalogBefore = await CatalogSnapshotAsync();
         var reservationsBefore = await ReservationsSnapshotAsync();
-        var paymentsBefore = await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "Inbox", "Outbox", "Faults", "Audit"]);
+        var paymentsBefore = await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "RefundOperations", "ProviderRefunds", "Inbox", "Outbox", "Faults", "Audit"]);
         var notificationsBefore = await WorkSnapshotAsync("notifications", ["Notifications", "DeliveryReceipts", "Inbox", "Outbox", "Faults", "Audit"]);
         await DockerAsync("stop");
         await DockerAsync("start");
@@ -75,6 +78,8 @@ public sealed class PersistenceTests
         Assert.Equal(beforeIdentity.GetProperty("userId").GetString(), afterIdentity.GetProperty("userId").GetString());
         var received = await BrokerAsync(broker, new() { ["Action"] = "ReceiveMessage", ["QueueUrl"] = queueUrl, ["WaitTimeSeconds"] = "1" });
         Assert.Equal(marker, received.Descendants().Single(e => e.Name.LocalName == "Body").Value);
+        // This harness survives the restart; production processes do not. Discard pre-restart physical sockets before ANY pooled query.
+        NpgsqlConnection.ClearAllPools();
         // Preserve the evidence queue/message; never purge business queues during tests.
         var settings = IntegrationTests.Settings;
         await using var connection = new NpgsqlConnection(LocalConfiguration.Connection("localhost", "identity_runtime", settings.RuntimePasswords["identity"], Path.Combine(IntegrationTests.Root, ".local", "certificates")));
@@ -83,8 +88,14 @@ public sealed class PersistenceTests
         Assert.Equal(3L, await count.ExecuteScalarAsync());
         Assert.Equal(catalogBefore, await CatalogSnapshotAsync());
         Assert.Equal(reservationsBefore, await ReservationsSnapshotAsync());
-        Assert.Equal(paymentsBefore, await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "Inbox", "Outbox", "Faults", "Audit"]));
+        Assert.Equal(paymentsBefore, await WorkSnapshotAsync("payments", ["Operations", "ProviderEffects", "RefundOperations", "ProviderRefunds", "Inbox", "Outbox", "Faults", "Audit"]));
         Assert.Equal(notificationsBefore, await WorkSnapshotAsync("notifications", ["Notifications", "DeliveryReceipts", "Inbox", "Outbox", "Faults", "Audit"]));
+        var recoveryClock=new SagaWorkflowTests.Clock(DateTimeOffset.UtcNow.AddSeconds(61));
+        Assert.True(await SagaWorkflowTests.RefundProcess(repairingSaga.RefundOperationId,recoveryClock));
+        await SagaWorkflowTests.RefundResult(sagaLab,repairingSaga.RefundOperationId);
+        var repaired=await SagaWorkflowTests.Saga(repairingSaga.Id);
+        Assert.Equal("Failed",repaired.State);Assert.True(repaired.RefundCompleted && repaired.SeatsReleased);
+        await using(var db=FreshPayments())Assert.Equal(1,await db.ProviderRefunds.CountAsync(x=>x.Id==repairingSaga.RefundOperationId && x.Reference!=null));
         await using (var db = FreshPayments())
             Assert.True(await new Payments.Api.Application.PaymentProcessor(db,
                 new Payments.Api.Application.DurableFakeProvider(new PaymentWorkflowTests.Factory<Payments.Api.Persistence.PaymentsDb>(FreshPayments), TimeProvider.System),

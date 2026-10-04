@@ -6,13 +6,18 @@
 <h1>Bounded simulated controls</h1>
 <p>Only fictional provider/sender modes are changed, never Saga outcomes. Accepted work keeps its selected mode. Controls require LabFeaturesEnabled on the service.</p>
 <label>Service <select @bind="payments" @bind:after="ServiceChanged"><option value="true">Payments</option><option value="false">Notifications</option></select></label>
-<label>Mode <select @bind="mode">@if(payments){<option>Success</option><option>Decline</option><option>TimeoutAfterCharge</option>}else{<option>None</option><option>FailureThenSuccess</option>}</select></label>
+<label>Mode <select @bind="mode">@if(payments){<option>Success</option><option>Decline</option><option>TimeoutAfterCharge</option><option>UnknownUntilAdminResolution</option><option>RefundTransientFailure</option>}else{<option>None</option><option>FailureThenSuccess</option>}</select></label>
 <label>Occurrences (0–100) <input type="number" min="0" max="100" @bind="occurrences" /></label>
 <button disabled="@Busy" @onclick="Read">Read current control</button><button disabled="@Busy" @onclick="Apply">Apply mode</button><button disabled="@Busy" @onclick="Reset">Reset service</button>
 @if(current is not null){<p>Persisted @current.Mode; remaining @current.Remaining</p>}
 @if(Error is not null){<p role="alert">@Error</p>}
-<p>UnknownUntilAdminResolution, refund failure, cancellation and complete compensation are LAB-005. No crash or arbitrary event publication control is exposed.</p>
+<h2>Catalog confirmation simulation</h2><button disabled="@Busy" @onclick="ReadCatalog">Read Catalog mode</button><button disabled="@Busy" @onclick="RejectConfirmation">Reject next valid confirmation</button><button disabled="@Busy" @onclick="ResetCatalog">Reset Catalog confirmation mode</button>
+@if(catalogFault is not null){<p>Catalog: @catalogFault.Mode; remaining @catalogFault.Remaining</p>}
 @code {
+    private Shared.Contracts.FaultView? catalogFault;
+    private Task ReadCatalog()=>RunAsync(async ct=>catalogFault=await Client.CatalogFaultAsync(ct));
+    private Task RejectConfirmation()=>RunAsync(async ct=>catalogFault=await Client.SetCatalogFaultAsync(new("RejectNextConfirmation",1),ct));
+    private Task ResetCatalog()=>RunAsync(async ct=>catalogFault=await Client.SetCatalogFaultAsync(new("None",0),ct));
     private bool payments=true;private string mode="Success";private int occurrences=1;private Shared.Contracts.FaultView? current;
     private void ServiceChanged(){mode=payments?"Success":"None";current=null;}
     private Task Read()=>RunAsync(async ct=>current=await Client.FaultAsync(payments,ct));

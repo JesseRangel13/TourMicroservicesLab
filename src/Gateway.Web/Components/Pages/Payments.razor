@@ -6,7 +6,7 @@
 @inherits Gateway.Web.Catalog.CatalogComponent
 @inject Gateway.Web.Business.BusinessClient Client
 <h1>Simulated payments</h1>
-<p>No real payment is processed. Unknown never means declined. Refunds and full compensation remain LAB-005.</p>
+<p>No real payment is processed. Unknown never means declined. Refunds use the original charge and a stable refund identifier.</p>
 <button disabled="@Busy" @onclick="Load">Reload</button>
 @if(Error is not null){<p role="alert">@Error</p>}
 @if(Id is null)
@@ -21,8 +21,9 @@ else if(item is not null)
     <p>@item.Id — @item.Status; mode @item.Mode; provider reference @item.ProviderReference</p>
     <p>Agreed simulated amount: @((item.AmountMinor/100m).ToString("0.00")) @item.Currency. @item.Reason</p>
     <p>Reconciliation attempts: @item.ReconcileAttempts; next lookup: @item.NextReconcileAtUtc</p>
+    @if(item.Refund is { } refund){<p>Simulated refund @refund.Id — @refund.Status; attempts @refund.Attempts; @refund.Reason; reference @refund.ProviderReference</p>}
     <a href="@($"/reservations/{item.ReservationId}")">Reservation timeline</a>
-    <AuthorizeView Roles="Admin"><button disabled="@(Busy || item.Status!="Unknown")" @onclick="Reconcile">Reconcile original provider operation</button></AuthorizeView>
+    <AuthorizeView Roles="Admin"><button disabled="@(Busy || item.Status!="Unknown")" @onclick="Reconcile">Reconcile original provider operation</button>@if(item.Mode=="UnknownUntilAdminResolution" && item.Status=="Unknown"){<button disabled="@Busy" @onclick="ResolveCharged">Resolve simulated provider as charged</button><button disabled="@Busy" @onclick="ResolveNotCharged">Resolve simulated provider as not charged</button>}</AuthorizeView>
 }
 <AuthorizeView Roles="Admin"><a href="/admin/simulations">Select bounded simulated modes</a></AuthorizeView>
 @code {
@@ -30,13 +31,15 @@ else if(item is not null)
     [SupplyParameterFromQuery(Name="reservationId")] public Guid? ReservationId {get;set;}
     private Shared.Contracts.PaymentView[] rows=[];
     private Shared.Contracts.PaymentView? item;
-    private int page=1;private Task? polling;private string filter="";
-    protected override Task OnParametersSetAsync(){filter=ReservationId?.ToString()??"";return Load();}
+    private int page=1;private Task? polling;private string filter="";private bool rendered;
+    protected override async Task OnParametersSetAsync(){filter=ReservationId?.ToString()??"";await Load();if(rendered && Id is not null && (polling is null || polling.IsCompleted))polling=PollAsync();}
     private Task Filter()=>RunAsync(async ct=>{if(!string.IsNullOrWhiteSpace(filter) && !Guid.TryParse(filter,out _))throw new Gateway.Web.Catalog.CatalogClientException("Enter a valid reservation ID.");ReservationId=string.IsNullOrWhiteSpace(filter)?null:Guid.Parse(filter);page=1;rows=await Client.PaymentsAsync(page,ReservationId,ct);});
-    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender && Id is not null)polling=PollAsync();return Task.CompletedTask;}
+    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender){rendered=true;if(Id is not null)polling=PollAsync();}return Task.CompletedTask;}
     private Task Load()=>RunAsync(async ct=>{if(Id is Guid id)item=await Client.PaymentAsync(id,ct);else rows=await Client.PaymentsAsync(page,ReservationId,ct);});
     private Task Reconcile()=>RunAsync(async ct=>{item=await Client.ReconcileAsync(Id!.Value,ct);});
+    private Task ResolveCharged()=>Resolve("Succeeded"); private Task ResolveNotCharged()=>Resolve("NotCharged");
+    private Task Resolve(string outcome)=>RunAsync(async ct=>{await Client.ResolveAsync(Id!.Value,outcome,ct);item=await Client.ReconcileAsync(Id.Value,ct);if(polling is null || polling.IsCompleted)polling=PollAsync();});
     private Task Previous(){page--;return Load();} private Task Next(){page++;return Load();}
-    private async Task PollAsync(){try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(item?.Status is "Pending" or "Unknown" && await timer.WaitForNextTickAsync(Lifetime.Token))await InvokeAsync(async()=>{await Load();StateHasChanged();});}catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}}
+    private async Task PollAsync(){try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(Id is not null && (item?.Status=="Pending" || item?.Status=="Unknown" && item.ReconcileAttempts<5 || item?.Refund?.Status=="Pending") && await timer.WaitForNextTickAsync(Lifetime.Token))await InvokeAsync(async()=>{await Load();StateHasChanged();});}catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}}
     public async ValueTask DisposeAsync(){Lifetime.Cancel();if(polling is not null)await polling;Dispose();}
 }

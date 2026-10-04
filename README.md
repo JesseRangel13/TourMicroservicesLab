@@ -6,6 +6,7 @@ LAB-002 adds Catalog tours/sessions, service-only quotes, transactional inventor
 durable publication intents, and basic catalog/admin screens. LAB-003 adds durable Reservations and
 SQS Outbox/Inbox. LAB-004 adds independently durable simulated provider/sender effects, payment
 reconciliation, successful confirmation, declined-payment release and payment/notification screens.
+LAB-005 adds durable refunds, cancellation, persisted Saga deadlines, late-result compensation and authorized recovery controls.
 The specifications below and in `specs/` remain the source of truth.
 
 ## Run locally on Windows
@@ -82,6 +83,7 @@ dotnet test --no-build # pure tests run; local integration/restart tests report 
 ./scripts/Verify-Local.ps1 # enables real PostgreSQL and HTTP integration tests
 ./scripts/Verify-Messaging.ps1 # controlled crash windows; pauses/resumes Catalog/Reservations workers
 ./scripts/Verify-Payments.ps1 # real transport/provider/sender workflow and independent-effect crash checks
+./scripts/Verify-Sagas.ps1 # refund/cancellation/deadline/late-result recovery with real PostgreSQL and ElasticMQ
 ./scripts/Verify-Restart.ps1 # stops/starts this Compose lab; preserves its data
 docker compose ps
 curl.exe --ssl-revoke-best-effort --cacert .local/certificates/ca.crt https://localhost:8443/health/live
@@ -96,8 +98,9 @@ Catalog migration/API/manual UI instructions are in `docs/catalog-execution.md`;
 are in `docs/evidence/LAB-002.md`.
 Reservations, queue initialization, staged consumers and manual UI checks are documented in
 `docs/reservations-execution.md`; actual LAB-003 results are in `docs/evidence/LAB-003.md`.
-Current LAB-004 consumer/migration instructions and the manual demo are in `docs/payments-execution.md`.
-All disruptive scripts now pause/resume all four consumers and payment/notification work processors.
+LAB-004 consumer instructions are in `docs/payments-execution.md`.
+LAB-005 migrations, recovery configuration and manual demos are in `docs/saga-execution.md`.
+All disruptive scripts pause/resume all four consumers, payment/refund/notification work and Saga deadline workers.
 To regenerate runtime JSON after a path/config-generator change without rotating passwords/keys:
 `dotnet run --project tools/Lab.Provisioner -- refresh`.
 Use `config/private.example.json` as the secret-free shape reference. Never copy the privileged
@@ -112,13 +115,13 @@ Git and Docker build contexts. Linux/macOS setup scripts are not provided in LAB
 
 No AWS resources, paid services, real card payments, or SMTP deliveries were created.
 Neon/Fargate deployment is reserved for LAB-008/009 with fresh quota, cost, and permission checks.
-This foundation does not satisfy the full business UI or distributed-workflow acceptance criteria.
+Full diagnostics, browser circuit isolation and later hardening checks remain scheduled tasks.
 The implemented workflow is create → hold → simulated payment → actual Catalog confirmation →
 Confirmed → simulated notification. A decline stays Compensating until Catalog confirms release,
 then becomes Failed. Unknown is reconciled with the original provider operation; it never means decline.
-Charged confirmation rejection retains Compensating with refund/release requirements. Refund execution,
-cancellation, late-result repair and complete Saga timers remain LAB-005.
-Next task: **LAB-005**, refunds, cancellation, deadlines, late outcomes and complete compensation.
+Charged confirmation rejection and cancellation track durable refund/release requirements independently. Persisted deadlines abandon unconfirmed work safely; late charge results initiate refunds. Unresolved payment or compensation enters ManualReview with protected reconciliation/retry controls.
+
+Next task: **LAB-006**, resilience, observability and diagnostics/DLQ controls.
 
 ## Original specification overview
 
@@ -128,7 +131,7 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
 The original package contained specifications only. This repository now includes LAB-001 through
-LAB-004; complete Saga recovery, refunds/cancellation and AWS resources remain unimplemented.
+LAB-005; full diagnostics, later security/browser checks and AWS resources remain later tasks.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.

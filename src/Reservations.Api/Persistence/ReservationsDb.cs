@@ -34,6 +34,9 @@ public sealed class ReservationSaga
     public bool RefundCompleted { get; set; }
     public bool SeatsReleaseRequired { get; set; }
     public bool SeatsReleased { get; set; }
+    public bool PaymentRequested { get; set; }
+    public bool PaymentResolved { get; set; }
+    public bool CancellationRequested { get; set; }
     public long Version { get; set; } = 1;
 }
 public sealed class IdempotencyRequest

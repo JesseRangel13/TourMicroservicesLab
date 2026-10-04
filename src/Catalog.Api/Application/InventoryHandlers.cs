@@ -66,6 +66,16 @@ public sealed class InventoryHandlers(CatalogDb db, TimeProvider clock)
         if (hold is not null) CatalogRules.Require(hold.SagaId == context.SagaId, "OperationIdentityConflict", 409);
         if (hold?.SessionId is Guid sessionId) await CatalogRules.SessionAsync(db, sessionId, ct);
         var now = clock.GetUtcNow();
+        if(hold?.Status=="Held" && hold.ExpiresAtUtc>now)
+        {
+            var fault=(await db.Faults.FromSqlRaw("SELECT * FROM catalog.\"Faults\" WHERE \"Id\"=1 FOR UPDATE").ToListAsync(ct)).Single();
+            if(fault.Mode=="RejectNextConfirmation" && fault.Remaining>0)
+            {
+                fault.Remaining--;
+                await IntentAsync($"hold/{hold.Id}/confirmation-rejected",new SeatsConfirmationRejected(hold.Id,"SimulatedConfirmationRejection"),context,ct);
+                await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return new(false,hold.Status,"SimulatedConfirmationRejection");
+            }
+        }
         if (hold is not null && (hold.Status == "Confirmed" || (hold.Status == "Held" && hold.ExpiresAtUtc > now)))
         {
             if (hold.Status == "Held") { hold.Status = "Confirmed"; hold.Version = checked(hold.Version + 1); }

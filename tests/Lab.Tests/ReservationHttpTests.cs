@@ -39,7 +39,7 @@ public sealed class ReservationHttpTests
             using var adminDetail = await Send(client, HttpMethod.Get, $"/{accepted.ReservationId}", admin.Token); Assert.Equal(HttpStatusCode.OK, adminDetail.StatusCode);
             using var ownList = await Send(client, HttpMethod.Get, "", bob.Token); Assert.DoesNotContain((await ownList.Content.ReadFromJsonAsync<ReservationPage>())!.Items, r => r.Id == accepted.ReservationId);
             using var adminFilter = await Send(client, HttpMethod.Get, $"?userId={alice.Id}&status=AwaitingAvailability", admin.Token); Assert.Equal(HttpStatusCode.OK, adminFilter.StatusCode);
-            using var cancel = await Send(client, HttpMethod.Post, $"/{accepted.ReservationId}/cancel", alice.Token, new { }, key); Assert.Equal(HttpStatusCode.NotFound, cancel.StatusCode);
+            using var cancel = await Send(client, HttpMethod.Post, $"/{accepted.ReservationId}/cancel", alice.Token, new { }, key); Assert.Equal(HttpStatusCode.Conflict, cancel.StatusCode);
             var state = "AwaitingAvailability";
             for (var attempt = 0; attempt < 90 && state != "Confirmed"; attempt++)
             {

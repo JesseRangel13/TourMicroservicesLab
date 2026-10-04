@@ -23,7 +23,8 @@
   },
   "Kestrel": { "Endpoints": { "Https": { "Url": "https://localhost:8443", "Certificate": { "Path": "<private service PFX path>" } } } },
   "AllowedHosts": "localhost;lab.tours.test;gateway.tourlab.internal",
-  "PaymentWork": { "Enabled": true },
+  "PaymentWork": { "Enabled": true, "ReconcileIntervalsSeconds": [5, 10, 20, 30, 30] },
+  "SagaRecovery": { "Enabled": true, "AvailabilitySeconds": 30, "PaymentSeconds": 120, "ConfirmationSeconds": 30, "RecoverySeconds": 120 },
   "NotificationWork": { "Enabled": true },
   "LabFeaturesEnabled": false
 }

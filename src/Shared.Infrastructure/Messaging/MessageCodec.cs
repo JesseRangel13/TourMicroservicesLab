@@ -50,8 +50,8 @@ public static class MessageRoutes
         "HoldSeats" or "ConfirmSeats" or "ReleaseSeats" => ["tourlab-catalog"],
         "SeatsHeld" or "SeatsHoldRejected" or "SeatsConfirmed" or "SeatsConfirmationRejected" or "SeatsHoldExpired" or "SeatsReleased" or "TourSessionChanged" => ["tourlab-reservations"],
         "ProcessPayment" or "ReconcilePayment" or "RefundPayment" => ["tourlab-payments"],
-        "PaymentSucceeded" or "PaymentDeclined" or "PaymentOutcomeUnknown" => ["tourlab-reservations"],
-        "ReservationConfirmed" or "ReservationFailed" => ["tourlab-notifications"],
+        "PaymentSucceeded" or "PaymentDeclined" or "PaymentOutcomeUnknown" or "PaymentRefunded" or "RefundNeedsReview" => ["tourlab-reservations"],
+        "ReservationConfirmed" or "ReservationFailed" or "ReservationCancelled" => ["tourlab-notifications"],
         _ => throw new PoisonMessageException("UnknownRoute")
     };
     public static string Serialize<T>(T payload, Guid messageId, Guid deliveryId, DateTimeOffset now, Guid? sagaId, Guid correlationId, Guid causationId) =>

@@ -28,19 +28,19 @@ public sealed class PaymentWorkflowTests
     internal static NotificationsDb Notifications()=>new(new DbContextOptionsBuilder<NotificationsDb>().UseNpgsql(ReservationTestSupport.Connection("notifications")).Options);
     private static DurableFakeProvider Provider()=>new(new Factory<PaymentsDb>(Payments),TimeProvider.System);
     private static DurableFakeSender Sender()=>new(new Factory<NotificationsDb>(Notifications),TimeProvider.System);
-    private static async Task<IntegrationEnvelope<JsonElement>> ReadReservationIntent(Guid saga,string effect)
+    internal static async Task<IntegrationEnvelope<JsonElement>> ReadReservationIntent(Guid saga,string effect)
     {
         await using var db=ReservationTestSupport.Reservations();return MessageCodec.Parse((await db.Outbox.SingleAsync(o=>o.EffectKey==$"saga/{saga}/{effect}")).EnvelopeJson);
     }
-    private static async Task ConsumePayment(MessagingTests.Lab lab,ReceivedDelivery delivery)
+    internal static async Task ConsumePayment(MessagingTests.Lab lab,ReceivedDelivery delivery)
     {await using var db=Payments();await new MessagePump(new PaymentConsumer(db),lab.Transport,Options.Create(lab.Options)).ProcessAsync(delivery,default);}
-    private static async Task ConsumeNotification(MessagingTests.Lab lab,ReceivedDelivery delivery)
+    internal static async Task ConsumeNotification(MessagingTests.Lab lab,ReceivedDelivery delivery)
     {await using var db=Notifications();await new MessagePump(new NotificationConsumer(db,TimeProvider.System),lab.Transport,Options.Create(lab.Options)).ProcessAsync(delivery,default);}
-    private static async Task<bool> ProcessPayment(Guid id,Func<CancellationToken,Task>? barrier=null)
+    internal static async Task<bool> ProcessPayment(Guid id,Func<CancellationToken,Task>? barrier=null)
     {await using var db=Payments();return await new PaymentProcessor(db,Provider(),TimeProvider.System).ProcessAsync(default,id,barrier);}
     private static async Task<bool> ProcessNotification(Guid id,Func<CancellationToken,Task>? barrier=null)
     {await using var db=Notifications();return await new NotificationProcessor(db,Sender(),TimeProvider.System).ProcessAsync(default,id,barrier);}
-    private static async Task<MessagingTests.Creation> StartAsync(MessagingTests.Lab lab,string mode)
+    internal static async Task<MessagingTests.Creation> StartAsync(MessagingTests.Lab lab,string mode)
     {
         // Hosted workers are paused: deterministic per-operation mode snapshot, without racing a global live queue.
         await SelectFaultAsync("payments", mode);
@@ -51,13 +51,13 @@ public sealed class PaymentWorkflowTests
         await lab.DispatchAsync("reservations",payment.DeliveryId);await ConsumePayment(lab,await lab.ReceiveAsync("tourlab-payments"));
         return creation;
     }
-    private static async Task DispatchCatalog(MessagingTests.Lab lab,Guid hold,string outcome)
+    internal static async Task DispatchCatalog(MessagingTests.Lab lab,Guid hold,string outcome)
     {await using var db=ReservationTestSupport.Catalog();await lab.DispatchAsync("catalog",(await db.Outbox.SingleAsync(o=>o.EffectKey==$"hold/{hold}/{outcome}")).DeliveryId);}
-    private static async Task DispatchPayment(MessagingTests.Lab lab,Guid operation,string outcome)
+    internal static async Task DispatchPayment(MessagingTests.Lab lab,Guid operation,string outcome)
     {await using var db=Payments();await lab.DispatchAsync("payments",(await db.Outbox.SingleAsync(o=>o.EffectKey==$"payment/{operation}/{outcome}")).DeliveryId);await lab.ReservationsAsync(await lab.ReceiveAsync("tourlab-reservations"));}
-    private static async Task<Guid> PaymentId(Guid saga)
+    internal static async Task<Guid> PaymentId(Guid saga)
     {await using var db=ReservationTestSupport.Reservations();return(await db.Sagas.SingleAsync(s=>s.Id==saga)).PaymentOperationId;}
-    private static async Task FinishConfirmed(MessagingTests.Lab lab,MessagingTests.Creation creation)
+    internal static async Task FinishConfirmed(MessagingTests.Lab lab,MessagingTests.Creation creation)
     {
         var confirm=await ReadReservationIntent(creation.Accepted.SagaId,"confirm");await lab.DispatchAsync("reservations",confirm.DeliveryId);
         await lab.CatalogAsync(await lab.ReceiveAsync("tourlab-catalog"));await DispatchCatalog(lab,creation.HoldId,"confirmed");
@@ -117,6 +117,18 @@ public sealed class PaymentWorkflowTests
         await using var lab=new MessagingTests.Lab();await lab.InitAsync();var creation=await StartAsync(lab,"Decline");var id=await PaymentId(creation.Accepted.SagaId);
         Assert.True(await ProcessPayment(id));await DispatchPayment(lab,id,"declined");
         await using(var db=ReservationTestSupport.Reservations())Assert.Equal("Compensating",(await db.Sagas.SingleAsync(s=>s.Id==creation.Accepted.SagaId)).State);
+        await using(var db=ReservationTestSupport.Reservations())
+        {
+            var saga=await db.Sagas.AsNoTracking().SingleAsync(s=>s.Id==creation.Accepted.SagaId);
+            Assert.True(await new Reservations.Api.Application.SagaRecovery(db,new SagaWorkflowTests.Clock(saga.DeadlineUtc.AddSeconds(1)),new()).DueAsync(default,saga.Id));
+        }
+        await using(var db=Payments())
+        {
+            var old=MessageCodec.Parse((await db.Outbox.SingleAsync(x=>x.EffectKey==$"payment/{id}/declined")).EnvelopeJson);
+            await lab.Transport.SendAsync("tourlab-reservations",JsonSerializer.Serialize(old with{MessageId=Guid.NewGuid(),DeliveryId=Guid.NewGuid()},MessageCodec.Json),default);
+        }
+        await lab.ReservationsAsync(await lab.ReceiveAsync("tourlab-reservations"));
+        await using(var db=ReservationTestSupport.Reservations()){var manual=await db.Sagas.SingleAsync(x=>x.Id==creation.Accepted.SagaId);Assert.Equal("ManualReview",manual.State);Assert.Equal("SimulatedDecline",manual.FailureReason);}
         var release=await ReadReservationIntent(creation.Accepted.SagaId,"release");await lab.DispatchAsync("reservations",release.DeliveryId);
         await lab.CatalogAsync(await lab.ReceiveAsync("tourlab-catalog"));await DispatchCatalog(lab,creation.HoldId,"released");await lab.ReservationsAsync(await lab.ReceiveAsync("tourlab-reservations"));
         await using(var db=ReservationTestSupport.Reservations()){var saga=await db.Sagas.SingleAsync(s=>s.Id==creation.Accepted.SagaId);Assert.Equal("Failed",saga.State);Assert.True(saga.SeatsReleased);Assert.False(saga.RefundRequired);Assert.Equal("SimulatedDecline",saga.FailureReason);}
@@ -192,7 +204,7 @@ public sealed class PaymentWorkflowTests
             using var forbidden=await client.SendAsync(fault);Assert.Equal(HttpStatusCode.Forbidden,forbidden.StatusCode);
         }
     }
-    private static async Task SelectFaultAsync(string service, string mode)
+    internal static async Task SelectFaultAsync(string service, string mode)
     {
         var admin = await ReservationTestSupport.IdentityAsync("Admin"); using var client = IntegrationTests.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Put,$"https://localhost:8443/api/{service}/v1/admin/faults")

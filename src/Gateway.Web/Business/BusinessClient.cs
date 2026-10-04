@@ -13,6 +13,11 @@ public sealed class BusinessClient(IHttpClientFactory factory,AuthenticationStat
     public Task<PaymentView[]> PaymentsAsync(int page,Guid? reservation,CancellationToken ct)=>SendAsync<PaymentView[]>(HttpMethod.Get,$"payments/v1/payments?page={page}&reservationId={reservation}",null,ct);
     public Task<PaymentView> PaymentAsync(Guid id,CancellationToken ct)=>SendAsync<PaymentView>(HttpMethod.Get,$"payments/v1/payments/{id}",null,ct);
     public Task<PaymentView> ReconcileAsync(Guid id,CancellationToken ct)=>SendAsync<PaymentView>(HttpMethod.Post,$"payments/v1/admin/payments/{id}/reconcile",null,ct);
+    public Task<ProviderResolution> ResolveAsync(Guid id,string outcome,CancellationToken ct)=>SendAsync<ProviderResolution>(HttpMethod.Post,$"payments/v1/admin/fake-provider/{id}/resolve",new ProviderResolution(outcome),ct);
+    public Task<SagaView[]> SagasAsync(string? state,int page,CancellationToken ct)=>SendAsync<SagaView[]>(HttpMethod.Get,$"reservations/v1/admin/sagas?page={page}{(string.IsNullOrEmpty(state)?"":"&state="+Uri.EscapeDataString(state))}",null,ct);
+    public Task<SagaView> RetryCompensationAsync(Guid id,CancellationToken ct)=>SendAsync<SagaView>(HttpMethod.Post,$"reservations/v1/admin/sagas/{id}/retry-compensation",null,ct);
+    public Task<FaultView> CatalogFaultAsync(CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Get,"catalog/v1/admin/faults",null,ct);
+    public Task<FaultView> SetCatalogFaultAsync(FaultSelection fault,CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Put,"catalog/v1/admin/faults",fault,ct);
     public Task<NotificationPage> NotificationsAsync(int page,Guid? reservation,CancellationToken ct)=>SendAsync<NotificationPage>(HttpMethod.Get,$"notifications/v1/notifications?page={page}&reservationId={reservation}",null,ct);
     public Task<NotificationView> NotificationAsync(Guid id,CancellationToken ct)=>SendAsync<NotificationView>(HttpMethod.Get,$"notifications/v1/notifications/{id}",null,ct);
     public Task<FaultView> FaultAsync(bool payments,CancellationToken ct)=>SendAsync<FaultView>(HttpMethod.Get,$"{(payments?"payments":"notifications")}/v1/admin/faults",null,ct);

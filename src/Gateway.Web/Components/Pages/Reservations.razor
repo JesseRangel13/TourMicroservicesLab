@@ -4,7 +4,7 @@
 @inherits Gateway.Web.Catalog.CatalogComponent
 @inject Gateway.Web.Reservations.ReservationClient ReservationsClient
 <h1>Reservations</h1>
-<p>Payments and notifications are simulated. Cancellation, refunds and full compensation remain LAB-005.</p>
+<p>Payments and notifications are simulated. Confirmed future reservations can be cancelled with a full simulated refund; pending recovery remains visible.</p>
 <AuthorizeView Roles="Admin"><label>User ID filter <input @bind="userId" /></label><label>Status filter <input @bind="status" /></label></AuthorizeView>
 <button disabled="@Busy" @onclick="Search">Reload / filter</button>
 @if (Busy) { <p role="status">Loading…</p> }

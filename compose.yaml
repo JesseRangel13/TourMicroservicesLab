@@ -54,7 +54,7 @@ services:
       - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
     depends_on: { postgres: { condition: service_healthy } }
   reservations:
-    environment: { Messaging__Enabled: "${LAB_MESSAGING_ENABLED:-true}" }
+    environment: { Messaging__Enabled: "${LAB_MESSAGING_ENABLED:-true}", SagaRecovery__Enabled: "${LAB_WORK_ENABLED:-true}" }
     build: { context: ., args: { PROJECT: Reservations.Api } }
     image: tourlab/reservations:lab001
     ports: ["127.0.0.1:8445:8443"]

@@ -79,9 +79,13 @@ public sealed class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(o
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<SeatHold> Holds => Set<SeatHold>();
     public DbSet<CatalogOutbox> Outbox => Set<CatalogOutbox>();
+    public DbSet<CatalogFault> Faults => Set<CatalogFault>();
+    public DbSet<CatalogFaultAudit> FaultAudit => Set<CatalogFaultAudit>();
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasDefaultSchema("catalog");
+        model.Entity<CatalogFault>(b=>{b.ToTable("Faults");b.HasKey(x=>x.Id);b.HasData(new CatalogFault{Id=1});});
+        model.Entity<CatalogFaultAudit>(b=>{b.ToTable("FaultAudit");b.HasKey(x=>x.Id);});
         model.Entity<CatalogInbox>(b => { b.ToTable("Inbox"); b.HasKey(x => new { x.ConsumerName, x.MessageId });
             b.Property(x => x.ConsumerName).HasMaxLength(100); b.Property(x => x.Fingerprint).HasMaxLength(64); b.HasIndex(x => x.ProcessedAtUtc); });
         model.Entity<Tour>(b =>

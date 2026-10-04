@@ -14,6 +14,7 @@ builder.Services.AddScoped<Shared.Infrastructure.Messaging.OutboxDispatcher>();
 builder.Services.AddHostedService<Catalog.Api.Messaging.HoldExpirationWorker>();
 var app = builder.Build();
 app.UseLabPipeline();
+app.UseRateLimiter();
 app.MapLabHealth();
 app.MapScaffoldStatus(app.Environment.ApplicationName);
 app.MapCatalog();

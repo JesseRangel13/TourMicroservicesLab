@@ -74,7 +74,7 @@ public static class LocalConfiguration
             ["Jwt"] = new Dictionary<string, string> { ["PublicKeyPath"] = CertificatePath(certificates, "jwt.pub") },
             ["Kestrel"] = new { Endpoints = new { Https = new { Url = $"https://{(container ? "0.0.0.0" : "localhost")}:{port}", Certificate = new { Path = CertificatePath(certificates, $"{service}.pfx") } } } },
             ["AllowedHosts"] = $"localhost;127.0.0.1;lab.tours.test;{service};{service}.tourlab.internal",
-            ["LabFeaturesEnabled"] = service is "payments" or "notifications"
+            ["LabFeaturesEnabled"] = service is "catalog" or "payments" or "notifications"
         };
         if (service == "catalog") config["ServiceJwt"] = new { PublicKeyPath = CertificatePath(certificates, "reservations-signing.pub") };
         if (service is "catalog" or "reservations" or "payments" or "notifications")
