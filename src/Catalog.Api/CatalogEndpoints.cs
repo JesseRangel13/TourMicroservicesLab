@@ -22,27 +22,35 @@ public static class CatalogEndpoints
         services.AddScoped<QuoteHandler>(); services.AddScoped<InventoryHandlers>();
         services.AddRateLimiter(o=>{o.RejectionStatusCode=429;o.AddPolicy("catalog-lab-admin",context=>RateLimitPartition.GetFixedWindowLimiter(
             context.User.FindFirst("sub")?.Value??"anonymous",_=>new FixedWindowRateLimiterOptions{PermitLimit=20,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
-        var rsa = RSA.Create(); rsa.ImportFromPem(File.ReadAllText(configuration["ServiceJwt:PublicKeyPath"]
-            ?? throw new InvalidOperationException("Reservations public signing key required.")));
         // Key lifetime belongs to DI, rather than a request or Blazor circuit.
-        services.AddSingleton(new ReservationsVerificationKey(rsa));
+        services.AddSingleton(_ =>
+        {
+            var rsa = RSA.Create(); rsa.ImportFromPem(File.ReadAllText(configuration["ServiceJwt:PublicKeyPath"]
+                ?? throw new InvalidOperationException("Reservations public signing key required.")));
+            return new ReservationsVerificationKey(rsa);
+        });
         services.AddAuthentication().AddJwtBearer("Reservations", o =>
         {
             o.MapInboundClaims = false; o.IncludeErrorDetails = false;
-            o.TokenValidationParameters = new TokenValidationParameters { ValidateIssuer = true, ValidIssuer = "tourlab-services",
-                ValidateAudience = true, ValidAudience = "catalog-internal", ValidateLifetime = true, RequireExpirationTime = true,
-                RequireSignedTokens = true, ValidateIssuerSigningKey = true, IssuerSigningKey = new RsaSecurityKey(rsa),
-                ValidAlgorithms = [SecurityAlgorithms.RsaSha256], ClockSkew = TimeSpan.Zero };
             o.Events = new JwtBearerEvents { OnTokenValidated = context =>
             {
                 var jwt = context.SecurityToken;
-                if (jwt.ValidTo - jwt.ValidFrom > TimeSpan.FromMinutes(2) || jwt.ValidFrom == DateTime.MinValue)
+                var subjects = context.Principal?.FindAll("sub").ToArray() ?? [];
+                if (subjects.Length != 1 || string.IsNullOrWhiteSpace(subjects[0].Value)
+                    || subjects[0].Value.Length > 128
+                    || jwt.ValidTo - jwt.ValidFrom > TimeSpan.FromMinutes(2) || jwt.ValidFrom == DateTime.MinValue)
                     context.Fail("Invalid service token lifetime.");
                 return Task.CompletedTask;
             } };
         });
+        services.AddOptions<JwtBearerOptions>("Reservations").Configure<ReservationsVerificationKey>((o, key) =>
+            o.TokenValidationParameters = new TokenValidationParameters { ValidateIssuer = true, ValidIssuer = "tourlab-services",
+                ValidateAudience = true, ValidAudience = "catalog-internal", ValidateLifetime = true, RequireExpirationTime = true,
+                RequireSignedTokens = true, ValidateIssuerSigningKey = true, IssuerSigningKey = new RsaSecurityKey(key.Rsa),
+                ValidAlgorithms = [SecurityAlgorithms.RsaSha256], ClockSkew = TimeSpan.Zero });
         services.AddAuthorization(o => o.AddPolicy("CatalogQuotes", p => p.AddAuthenticationSchemes("Reservations")
-            .RequireAuthenticatedUser().RequireClaim("sub", "reservations").RequireClaim("permission", "quote:create")));
+            .RequireAuthenticatedUser().RequireClaim("sub", "reservations").RequireClaim("permission", "quote:create")
+            .RequireAssertion(c => c.User.FindAll("permission").Count() == 1)));
         return services;
     }
     public static void MapCatalog(this WebApplication app)
@@ -89,5 +97,5 @@ public static class CatalogEndpoints
         db.FaultAudit.Add(new CatalogFaultAudit{Id=Guid.NewGuid(),Actor=http.User.FindFirst("sub")?.Value??"",Action=$"Simulated mode {request.Mode}; occurrences {request.Occurrences}",OccurredAtUtc=DateTimeOffset.UtcNow});
         await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return new(row.Mode,row.Remaining);
     }
-    private sealed class ReservationsVerificationKey(RSA rsa) : IDisposable { public void Dispose() => rsa.Dispose(); }
+    private sealed class ReservationsVerificationKey(RSA rsa) : IDisposable { public RSA Rsa { get; } = rsa; public void Dispose() => Rsa.Dispose(); }
 }

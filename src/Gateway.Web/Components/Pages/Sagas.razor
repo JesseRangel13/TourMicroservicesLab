@@ -8,6 +8,7 @@
 <p>Payments and refunds are simulated. Retry continues missing compensation using the original IDs. Resolve uncertain payments on the payment screen first.</p>
 <label>State <select @bind="state"><option value="">All</option>@foreach(var s in states){<option>@s</option>}</select></label>
 <button disabled="@Busy" @onclick="Filter">Filter / reload</button>
+@if(Busy){<p role="status">Loading…</p>}
 @if(Error is not null){<p role="alert">@Error</p>}
 @foreach(var row in rows)
 {
@@ -23,15 +24,15 @@
 <button disabled="@(Busy || page==1)" @onclick="Previous">Previous</button><button disabled="@(Busy || rows.Length<20)" @onclick="Next">Next</button>
 @code {
     private readonly string[] states=["AwaitingAvailability","AwaitingPayment","AwaitingConfirmation","PaymentUncertain","Compensating","CancellationPending","Confirmed","Failed","Cancelled","ManualReview"];
-    private Shared.Contracts.SagaView[] rows=[];private string state="";private int page=1;private Task? polling;
+    private Shared.Contracts.SagaView[] rows=[];private string state="";private int page=1;private Task? polling;private bool rendered;
     protected override Task OnInitializedAsync()=>Load();
-    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender)polling=PollAsync();return Task.CompletedTask;}
-    private Task Load()=>RunAsync(async ct=>rows=await Client.SagasAsync(state,page,ct));
+    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender){rendered=true;polling=PollAsync();}return Task.CompletedTask;}
+    private async Task Load(){await RunAsync(async ct=>rows=await Client.SagasAsync(state,page,ct));if(rendered && Error is null && (polling is null || polling.IsCompleted))polling=PollAsync();}
     private Task Filter(){page=1;return Load();}private Task Previous(){page--;return Load();}private Task Next(){page++;return Load();}
-    private Task Retry(Guid id)=>RunAsync(async ct=>{await Client.RetryCompensationAsync(id,ct);rows=await Client.SagasAsync(state,page,ct);});
+    private async Task Retry(Guid id){await RunAsync(async ct=>{await Client.RetryCompensationAsync(id,ct);rows=await Client.SagasAsync(state,page,ct);});if(Error is null && (polling is null || polling.IsCompleted))polling=PollAsync();}
     private async Task PollAsync()
     {
-        try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(await timer.WaitForNextTickAsync(Lifetime.Token))
+        try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(Error is null && rows.Any(x=>x.State is not ("Confirmed" or "Failed" or "Cancelled" or "ManualReview")) && await timer.WaitForNextTickAsync(Lifetime.Token))
             if(rows.Any(x=>x.State is not ("Confirmed" or "Failed" or "Cancelled" or "ManualReview")))await InvokeAsync(async()=>{await Load();StateHasChanged();});}
         catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}
     }

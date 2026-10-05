@@ -8,6 +8,7 @@ SQS Outbox/Inbox. LAB-004 adds independently durable simulated provider/sender e
 reconciliation, successful confirmation, declined-payment release and payment/notification screens.
 LAB-005 adds durable refunds, cancellation, persisted Saga deadlines, late-result compensation and authorized recovery controls.
 LAB-006 adds bounded quote resilience, JSON/OpenTelemetry correlation, service-owned diagnostics/DLQ replay, durable fault controls and the informational tour projection.
+LAB-007 hardens required JWT identities, ownership/session checks and UI lifetimes; corrects operations/projection interactivity; and supplies focused security/browser tests and a consolidated evidence matrix. Browser runtime verification remains outstanding.
 The specifications below and in `specs/` remain the source of truth.
 
 ## Run locally on Windows
@@ -85,7 +86,10 @@ dotnet test --no-build # pure tests run; local integration/restart tests report 
 ./scripts/Verify-Messaging.ps1 # controlled crash windows; pauses/resumes Catalog/Reservations workers
 ./scripts/Verify-Payments.ps1 # real transport/provider/sender workflow and independent-effect crash checks
 ./scripts/Verify-Sagas.ps1 # refund/cancellation/deadline/late-result recovery with real PostgreSQL and ElasticMQ
+./scripts/Verify-Security.ps1 # focused real-service authentication/ownership and client isolation checks
 ./scripts/Verify-Restart.ps1 # stops/starts this Compose lab; preserves its data
+./scripts/Verify-Security.ps1 -RateLimitOnly # run last; consumes the credential limit for up to one minute
+./scripts/Verify-Browser.ps1 # installed Chrome, trusted lab CA; run on the PC
 docker compose ps
 curl.exe --ssl-revoke-best-effort --cacert .local/certificates/ca.crt https://localhost:8443/health/live
 ```
@@ -116,13 +120,13 @@ Git and Docker build contexts. Linux/macOS setup scripts are not provided in LAB
 
 No AWS resources, paid services, real card payments, or SMTP deliveries were created.
 Neon/Fargate deployment is reserved for LAB-008/009 with fresh quota, cost, and permission checks.
-Full diagnostics, browser circuit isolation and later hardening checks remain scheduled tasks.
+Diagnostics and local security hardening are implemented. Interactive browser/circuit/disposal checks have explicit verification gaps; see [security instructions](docs/security-execution.md) and [consolidated evidence](docs/acceptance-matrix.md).
 The implemented workflow is create → hold → simulated payment → actual Catalog confirmation →
 Confirmed → simulated notification. A decline stays Compensating until Catalog confirms release,
 then becomes Failed. Unknown is reconciled with the original provider operation; it never means decline.
 Charged confirmation rejection and cancellation track durable refund/release requirements independently. Persisted deadlines abandon unconfirmed work safely; late charge results initiate refunds. Unresolved payment or compensation enters ManualReview with protected reconciliation/retry controls.
 
-Next task: **LAB-006**, resilience, observability and diagnostics/DLQ controls.
+Next task: independent **LAB-007** review and outstanding local browser checks, then **LAB-008** reviewable low-cost infrastructure artifacts. No automatic deployment.
 
 ## Original specification overview
 
@@ -132,7 +136,7 @@ Version 1.1 — October 2, 2026. Jesse's student project. English edition.
 Build a small tour application using .NET 10, a Blazor frontend, four microservices, real PostgreSQL, and a temporary deployment on AWS ECS/Fargate. Payments and email are simulated, with durable state. The priority is to learn distributed-system decisions and demonstrate them in an interview, without turning this lab into a commercial platform.
 
 The original package contained specifications only. This repository now includes LAB-001 through
-LAB-006; independent LAB-006 review, LAB-007 security/browser checks and AWS resources remain later work.
+LAB-007. Independent LAB-001–006 reviews passed. LAB-007 browser runtime checks and independent review remain outstanding; AWS resources remain separate later work.
 
 ## Main decisions
 - Backend: .NET 10 / ASP.NET Core, EF Core 10, and a compatible Npgsql provider.
@@ -181,3 +185,7 @@ docker compose up -d --wait gateway catalog reservations payments notifications
 ```
 
 The base application remains independent of collector/viewer availability. Readiness is on demand and checks only the owning database; no background database metrics scraper was added. Stop application tasks between sessions to let Neon suspend in a later AWS deployment; a fault pause is not a cloud cost pause. No AWS resources were deployed.
+
+## Final local review
+
+See [LAB-007 evidence](docs/evidence/LAB-007.md), [security and browser execution](docs/security-execution.md), [requirement-to-test matrix](docs/acceptance-matrix.md), [learning map](docs/learning-map.md) and the [10–15-minute demo](docs/demo-guide.md). Current direct Gateway ingress intentionally ignores client-supplied forwarded headers; trusted upstream-proxy work is conditional on LAB-008 topology. Identity plus this lab JWT issuer is not OAuth/OIDC. API-tool credential issuance stays outside the browser UI; no token export/localStorage control is provided.

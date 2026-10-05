@@ -27,6 +27,13 @@ public static class IdentityRegistration
             o.SlidingExpiration = false;
             o.LoginPath = "/login";
             o.AccessDeniedPath = "/access-denied";
+            o.Events.OnRedirectToLogin = context =>
+            {
+                // Identity inspection is an API; HTML pages retain their normal local login redirect.
+                if (context.Request.Path.Equals("/auth/me", StringComparison.OrdinalIgnoreCase)) context.Response.StatusCode = 401;
+                else context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            };
         });
         services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(1));
     }

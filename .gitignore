@@ -9,3 +9,6 @@ TestResults/
 **/*.key
 **/*.pem
 **/terraform.tfstate*
+**/node_modules/
+tests/EndToEnd/test-results/
+tests/EndToEnd/playwright-report/

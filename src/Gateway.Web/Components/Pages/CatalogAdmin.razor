@@ -5,13 +5,22 @@
 @inject Gateway.Web.Catalog.CatalogClient Catalog
 @inject NavigationManager Navigation
 <h1>Create tour</h1>
+<p role="status">@(connected ? "Catalog form connected." : "Connecting catalog form…")</p>
+<fieldset disabled="@(!connected || Busy)">
 <label>Name <input @bind="name" maxlength="200" /></label>
 <label>Description <textarea @bind="description" maxlength="4000"></textarea></label>
-<button disabled="@Busy" @onclick="Create">Create</button>
+<button disabled="@(!connected || Busy)" @onclick="Create">Create</button>
+</fieldset>
 <p><a href="/tours">Search tours (includes inactive tours for Admin)</a></p>
 @if (Busy) { <p role="status">Saving…</p> }
 @if (Error is not null) { <p role="alert">@Error</p> }
 @code {
+    private bool connected;
     private string name = ""; private string description = "";
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Prerendering never runs this callback; enable the form only in the live circuit.
+        if (firstRender) { connected = true; StateHasChanged(); }
+    }
     private Task Create() => RunAsync(async ct => { var tour = await Catalog.CreateAsync(new(name, description), ct); Navigation.NavigateTo($"/admin/catalog/{tour.Id}"); });
 }

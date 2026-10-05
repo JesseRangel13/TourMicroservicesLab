@@ -28,17 +28,18 @@
     protected override async Task OnParametersSetAsync()
     {
         if(intentionReservation!=Id){intentionReservation=Id;cancellationKey=Guid.NewGuid().ToString("N");}
+        reservation=null;timeline=[];
         await Load();if(rendered && (polling is null || polling.IsCompleted))polling=PollAsync();
     }
     protected override Task OnAfterRenderAsync(bool firstRender)
     { if (firstRender){rendered=true;polling = PollAsync();} return Task.CompletedTask; }
-    private Task Load() => RunAsync(async ct => { reservation = await ReservationsClient.DetailAsync(Id, ct); timeline = await ReservationsClient.TimelineAsync(Id, ct); });
+    private async Task Load(){await RunAsync(async ct => { reservation = await ReservationsClient.DetailAsync(Id, ct); timeline = await ReservationsClient.TimelineAsync(Id, ct); });if(rendered && Error is null && (polling is null || polling.IsCompleted))polling=PollAsync();}
     private async Task PollAsync()
     {
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
-            while (reservation is not null && reservation.Status is not ("Failed" or "Confirmed" or "Cancelled" or "ManualReview")
+            while (Error is null && reservation is not null && reservation.Status is not ("Failed" or "Confirmed" or "Cancelled" or "ManualReview")
                 && await timer.WaitForNextTickAsync(Lifetime.Token)) await InvokeAsync(async () => { await Load(); StateHasChanged(); });
         }
         catch (OperationCanceledException) when (Lifetime.IsCancellationRequested) { }

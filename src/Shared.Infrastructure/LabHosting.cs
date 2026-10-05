@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
@@ -37,6 +38,8 @@ public static class LabHosting
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.None);
         builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics", LogLevel.None);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Authentication.JwtBearer", LogLevel.Warning);
         builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
         {
             c.ProblemDetails.Extensions.TryAdd("code", c.ProblemDetails.Status == 500 ? "UnexpectedError" : "HttpError");
@@ -50,16 +53,31 @@ public static class LabHosting
 
     public static void AddLabJwt(this IServiceCollection services, IConfiguration configuration)
     {
-        var rsa = RSA.Create();
-        rsa.ImportFromPem(File.ReadAllText(configuration["Jwt:PublicKeyPath"]
-            ?? throw new InvalidOperationException("Jwt public key path is required.")));
-        services.AddSingleton(rsa);
+        services.AddSingleton<RSA>(_ =>
+        {
+            var rsa = RSA.Create();
+            rsa.ImportFromPem(File.ReadAllText(configuration["Jwt:PublicKeyPath"]
+                ?? throw new InvalidOperationException("Jwt public key path is required.")));
+            return rsa;
+        });
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
         {
             o.MapInboundClaims = false;
             o.IncludeErrorDetails = false;
-            o.TokenValidationParameters = JwtValidation.Create(new RsaSecurityKey(rsa));
+            o.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = context =>
+                {
+                    if (!JwtValidation.HasRequiredIdentity(context.Principal)
+                        || context.SecurityToken.ValidFrom == DateTime.MinValue
+                        || context.SecurityToken.ValidTo - context.SecurityToken.ValidFrom > TimeSpan.FromMinutes(15))
+                        context.Fail("Invalid human identity or token lifetime.");
+                    return Task.CompletedTask;
+                }
+            };
         });
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<RSA>((o, rsa) => o.TokenValidationParameters = JwtValidation.Create(new RsaSecurityKey(rsa)));
         services.AddAuthorization(o =>
         {
             o.AddPolicy("Api", p => p.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme).RequireAuthenticatedUser());
@@ -110,14 +128,28 @@ public static class LabHosting
     public static void MapScaffoldStatus(this WebApplication app, string service)
     {
         app.MapGet("/v1/status", (HttpContext context) =>
-            new ServiceStatus(service, "LAB-006 local implementation; independent review pending", context.User.FindFirst("sub")?.Value ?? ""))
+            new ServiceStatus(service, "LAB-007 local implementation; browser verification outstanding", context.User.FindFirst("sub")?.Value ?? ""))
             .RequireAuthorization("Api");
-        app.MapGet("/v1/admin/status", () => new { service, stage = "LAB-006" }).RequireAuthorization("AdminApi");
+        app.MapGet("/v1/admin/status", () => new { service, stage = "LAB-007" }).RequireAuthorization("AdminApi");
     }
 }
 
 public static class JwtValidation
 {
+    // Authorization must never treat a correctly signed but incomplete identity as a user.
+    // sub is opaque (Identity owns its format), unique, bounded and nonblank.
+    public static bool HasRequiredIdentity(ClaimsPrincipal? principal)
+    {
+        if (principal is null) return false;
+        var subjects = principal.FindAll("sub").ToArray();
+        var roles = principal.FindAll("role").ToArray();
+        return subjects.Length == 1 && subjects[0].Value.Length is > 0 and <= 128
+            && !string.IsNullOrWhiteSpace(subjects[0].Value)
+            && subjects[0].Value == subjects[0].Value.Trim()
+            && roles.Length > 0 && roles.All(c => c.Value is "Tourist" or "Admin")
+            && roles.Select(c => c.Value).Distinct(StringComparer.Ordinal).Count() == roles.Length;
+    }
+
     public static TokenValidationParameters Create(SecurityKey key) => new()
     {
         ValidateIssuer = true, ValidIssuer = "tourlab-identity",

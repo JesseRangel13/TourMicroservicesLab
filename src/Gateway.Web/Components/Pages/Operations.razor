@@ -1,6 +1,7 @@
 @using Shared.Contracts
 @page "/operations"
 @attribute [Authorize(Roles="Admin")]
+@rendermode InteractiveServer
 @implements IDisposable
 @inject Gateway.Web.Business.BusinessClient Client
 <PageTitle>Lab operations</PageTitle>

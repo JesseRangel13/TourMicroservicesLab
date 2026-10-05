@@ -20,3 +20,7 @@ losing its keys/passwords makes the persisted environment unusable without a del
 To remove trust when finishing the lab, use the thumbprint printed by Trust-LocalCa and remove **that
 specific** certificate from the current user's trusted root store. This is separate from pausing.
 Do not delete unrelated certificates or volumes.
+
+# LAB-007 security/browser checks
+
+`Verify-Security.ps1` selects real HTTPS/Identity/schema/ownership checks and per-request client isolation tests after building and starting the local lab. `Verify-Security.ps1 -RateLimitOnly` should run last: it uses nonexistent users and consumes the shared login/token window for at most one minute. `Verify-Browser.ps1 -ListOnly` restores pinned dependencies and discovers tests without launching a browser; omit the switch to use installed Chrome with the trusted lab CA. Never add certificate bypasses. Details and manual checks: `docs/security-execution.md`.

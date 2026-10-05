@@ -10,9 +10,13 @@ public static class AuthEndpoints
         app.MapPost("/auth/login", async (HttpContext context, IAntiforgery antiforgery,
             SignInManager<LabUser> signIn, UserManager<LabUser> users, CancellationToken ct) =>
         {
+            context.Response.Headers.CacheControl = "no-store";
             try { await antiforgery.ValidateRequestAsync(context); }
             catch (AntiforgeryValidationException) { return Results.BadRequest(new { code = "InvalidAntiforgeryToken" }); }
             var form = await context.Request.ReadFormAsync(ct);
+            if (string.IsNullOrWhiteSpace(form["username"]) || form["username"].ToString().Length > 256
+                || string.IsNullOrWhiteSpace(form["password"]) || form["password"].ToString().Length > 256)
+                return Results.LocalRedirect("/login?error=InvalidCredentials");
             var user = await users.FindByNameAsync(form["username"].ToString());
             if (user is null) return Results.LocalRedirect("/login?error=InvalidCredentials");
             var result = await signIn.CheckPasswordSignInAsync(user, form["password"].ToString(), lockoutOnFailure: true);
@@ -45,7 +49,8 @@ public static class AuthEndpoints
             UserManager<LabUser> users, JwtIssuer issuer, HttpContext context) =>
         {
             context.Response.Headers.CacheControl = "no-store";
-            if (string.IsNullOrWhiteSpace(input.Username) || string.IsNullOrWhiteSpace(input.Password)) return Results.Unauthorized();
+            if (string.IsNullOrWhiteSpace(input.Username) || input.Username.Length > 256
+                || string.IsNullOrWhiteSpace(input.Password) || input.Password.Length > 256) return Results.Unauthorized();
             var user = await users.FindByNameAsync(input.Username);
             if (user is null) return Results.Unauthorized();
             var result = await signIn.CheckPasswordSignInAsync(user, input.Password, lockoutOnFailure: true);

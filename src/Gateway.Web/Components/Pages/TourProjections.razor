@@ -1,6 +1,7 @@
 @using Shared.Contracts
 @page "/tour-projections"
 @attribute [Authorize]
+@rendermode InteractiveServer
 @implements IDisposable
 @inject Gateway.Web.Business.BusinessClient Client
 <PageTitle>Informational tour projection</PageTitle>

@@ -45,6 +45,7 @@ builder.Services.AddRateLimiter(o =>
         { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 var app = builder.Build();
+app.Lifetime.ApplicationStopped.Register(protectionCertificate.Dispose);
 app.UseLabPipeline();
 app.UseRateLimiter();
 app.UseAntiforgery();

@@ -7,6 +7,7 @@
 @inject Gateway.Web.Business.BusinessClient Client
 <h1>Simulated notifications</h1><p>No email is sent. Sent means a durable fictional delivery receipt.</p>
 <button disabled="@Busy" @onclick="Load">Reload</button>
+@if(Busy){<p role="status">Loading…</p>}
 @if(Error is not null){<p role="alert">@Error</p>}
 @if(Id is null && result is not null)
 {
@@ -21,12 +22,12 @@ else if(item is not null){<h2>@item.Subject</h2><p>@item.Body</p><p>@item.Status
     [Parameter] public Guid? Id {get;set;}
     [SupplyParameterFromQuery(Name="reservationId")] public Guid? ReservationId {get;set;}
     private Shared.Contracts.NotificationPage? result;private Shared.Contracts.NotificationView? item;
-    private int page=1;private Task? polling;private string filter="";
-    protected override Task OnParametersSetAsync(){filter=ReservationId?.ToString()??"";return Load();}
+    private int page=1;private Task? polling;private string filter="";private bool rendered;
+    protected override Task OnParametersSetAsync(){item=null;result=null;filter=ReservationId?.ToString()??"";return Load();}
     private Task Filter()=>RunAsync(async ct=>{if(!string.IsNullOrWhiteSpace(filter) && !Guid.TryParse(filter,out _))throw new Gateway.Web.Catalog.CatalogClientException("Enter a valid reservation ID.");ReservationId=string.IsNullOrWhiteSpace(filter)?null:Guid.Parse(filter);page=1;result=await Client.NotificationsAsync(page,ReservationId,ct);});
-    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender && Id is not null)polling=PollAsync();return Task.CompletedTask;}
-    private Task Load()=>RunAsync(async ct=>{if(Id is Guid id)item=await Client.NotificationAsync(id,ct);else result=await Client.NotificationsAsync(page,ReservationId,ct);});
+    protected override Task OnAfterRenderAsync(bool firstRender){if(firstRender){rendered=true;if(Id is not null)polling=PollAsync();}return Task.CompletedTask;}
+    private async Task Load(){await RunAsync(async ct=>{if(Id is Guid id)item=await Client.NotificationAsync(id,ct);else result=await Client.NotificationsAsync(page,ReservationId,ct);});if(rendered && Error is null && Id is not null && (polling is null || polling.IsCompleted))polling=PollAsync();}
     private Task Previous(){page--;return Load();}private Task Next(){page++;return Load();}
-    private async Task PollAsync(){try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(item?.Status=="Pending" && await timer.WaitForNextTickAsync(Lifetime.Token))await InvokeAsync(async()=>{await Load();StateHasChanged();});}catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}}
+    private async Task PollAsync(){try{using var timer=new PeriodicTimer(TimeSpan.FromSeconds(3));while(Error is null && item?.Status=="Pending" && await timer.WaitForNextTickAsync(Lifetime.Token))await InvokeAsync(async()=>{await Load();StateHasChanged();});}catch(OperationCanceledException)when(Lifetime.IsCancellationRequested){}}
     public async ValueTask DisposeAsync(){Lifetime.Cancel();if(polling is not null)await polling;Dispose();}
 }

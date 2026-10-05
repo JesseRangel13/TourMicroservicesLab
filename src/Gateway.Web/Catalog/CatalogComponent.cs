@@ -6,9 +6,10 @@ public abstract class CatalogComponent : ComponentBase, IDisposable
     protected bool Busy { get; private set; }
     protected string? Error { get; private set; }
     protected string? Success { get; set; }
+    private bool disposed;
     protected async Task RunAsync(Func<CancellationToken, Task> action)
     {
-        if (Busy) return;
+        if (Busy || disposed) return;
         Busy = true; Error = null; Success = null;
         try { await action(Lifetime.Token); }
         catch (OperationCanceledException) when (Lifetime.IsCancellationRequested) { }
@@ -17,5 +18,5 @@ public abstract class CatalogComponent : ComponentBase, IDisposable
         catch (HttpRequestException) { Error = "Service is unavailable. Retry an uncertain submission with its original key."; }
         finally { Busy = false; }
     }
-    public void Dispose() { Lifetime.Cancel(); Lifetime.Dispose(); GC.SuppressFinalize(this); }
+    public void Dispose() { if(disposed)return;disposed=true;Lifetime.Cancel(); Lifetime.Dispose(); GC.SuppressFinalize(this); }
 }

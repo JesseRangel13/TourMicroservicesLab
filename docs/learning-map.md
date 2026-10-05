@@ -1,6 +1,45 @@
-# Learning map: LAB-001 through LAB-004
+# Learning map: LAB-001 through LAB-007
 
 Topics are applied examples, not declarations of mastery. Numbers follow specification 05.
+
+## Current roadmap coverage
+
+The package references `docs/roadmap.md`, but that file is absent from this repository. The actual seventeen numbered topics below follow `specs/05-blazor-and-learning.md`; no additional topic numbers are invented. Historical staged examples below describe their original task, not today's implementation boundary.
+
+| Topic | Concrete implementation path | Why useful here | Short exercise | Interview question |
+|---|---|---|---|---|
+| 1 Value/reference/parameter passing | `src/Payments.Api/Persistence/PaymentsDb.cs`; `src/Shared.Contracts/PaymentContracts.cs` | Tracked mutable work is distinct from a returned immutable snapshot. | Change an entity after projecting a PaymentView; inspect both values. | When does passing a reference permit mutation without replacing the caller's variable? |
+| 2 Class/struct/record | `src/Gateway.Web/Identity/LabUser.cs`; `src/Shared.Contracts/CatalogContracts.cs` | Identity/EF entities are classes; transport/value snapshots are records. Money remains checked integer minor units. | Compare two equal CreateReservation records with two entity instances. | Why avoid record equality for tracked mutable entities? |
+| 3 Equality | `src/Shared.Infrastructure/Messaging/MessageCodec.cs`; `src/Catalog.Api/Application/InventoryHandlers.cs` | Canonical payload hashes and stable operation IDs detect repeats/conflicting content. | Repeat an operation with changed participants and inspect its conflict. | Why is MessageId equality alone insufficient for payment idempotency? |
+| 4 Nullable references | `Directory.Build.props`; `src/Payments.Api/Application/PaymentProcessing.cs` | Missing provider lookup results represent uncertainty, not decline. | Follow the nullable lookup path to Unknown and reconciliation. | Why is null not evidence that no charge occurred? |
+| 5 Generics/constraints/variance | `src/Shared.Contracts/CatalogContracts.cs` IntegrationEnvelope<T>; typed clients' SendAsync<T> | Typed payloads and responses reduce casts without a dispatch framework. | Deserialize the wrong payload type and observe validation. | When would variance solve an actual boundary problem? |
+| 6 Delegates/lambdas/closures/events | `src/Gateway.Web/Program.cs`; `src/Shared.Infrastructure/LabHosting.cs` | DI/Options/middleware callbacks bind actual policy and resource lifetimes. | Trace what the JWT Options callback captures and who owns RSA disposal. | How do integration events differ from in-process C# events? |
+| 7 LINQ/IEnumerable/IQueryable | `src/Reservations.Api/Application/ReservationHandlers.cs` ReservationQueries | Ownership filtering/pagination execute at PostgreSQL, before materialization. | Compare an IQueryable filter with a filter after ToArrayAsync. | Why can early materialization leak data and waste work? |
+| 8 Exceptions | `src/Shared.Infrastructure/LabHosting.cs` SafeExceptionHandler; owned endpoint filters | Expected conflicts have stable codes; unexpected failures expose no secret messages. | Trigger VersionConflict and compare its response with an unexpected failure. | Which failures belong in domain results versus middleware? |
+| 9 Async/await | `src/Shared.Infrastructure/Messaging/Workers.cs`; `src/Gateway.Web/Components/Pages/ReservationDetail.razor` | Cancellation reaches I/O; owned tasks are observed/joined. | Run ComponentDisposalCancelsOutstandingIoAndRejectsQueuedActions. | Why does cancelling a caller not undo a committed provider effect? |
+| 10 DI/IoC/lifetimes/factories/Options | `src/Gateway.Web/Identity/IdentityRegistration.cs`; `src/Payments.Api/Application/PaymentWorker.cs`; `src/Reservations.Api/ReservationEndpoints.cs` | Short contexts, scoped work and validated bounded configuration prevent captive state. | Identify singleton → async scope → DbContext in a worker. | Why does a Blazor circuit scope differ from an HTTP request scope? |
+| 11 ASP.NET pipeline/APIs | `src/Gateway.Web/Program.cs`; `src/Shared.Infrastructure/LabHosting.cs`; owned endpoints | Authentication precedes authorization/limiting; cookie and bearer boundaries stay explicit. | Trace a tourist Admin mutation to 403 and a foreign detail to 404. | Why is an Admin AuthorizeView insufficient? |
+| 12 EF/SQL | `src/Catalog.Api/Application/InventoryHandlers.cs`; owned `Persistence/Migrations/`; `tools/Lab.Provisioner/DatabaseBootstrap.cs` | Atomic inventory and role grants are database invariants, not search_path conventions. | Run the real runtime-role isolation check and final-seat test. | Which constraints survive a second application replica? |
+| 13 Testing/refactoring | `tests/Lab.Tests/SecurityTests.cs`; `CircuitIsolationTests.cs`; `tests/EndToEnd/security.spec.js` | Failure-oriented API tests complement controlled broker/provider fixtures and browser tests. | Explain what the concurrent fake-handler client test proves and what requires a browser. | Why does passing SSR not prove hydration or circuit isolation? |
+| 14 Concurrency/resources | `src/Reservations.Api/Application/CatalogQuoteClient.cs`; `src/Payments.Api/Application/RefundProcessing.cs` | Semaphore/breaker synchronization and durable leases/version fences solve different concurrency scopes. | Race two claims and inspect owner/version fencing. | Why cannot a process lock provide cross-replica inventory safety? |
+| 15 Architecture/SOLID/CQRS | `src/Reservations.Api/Application/SagaCommands.cs`; `src/Payments.Api/Application/PaymentProcessing.cs`; owned query handlers | Concrete typed handlers separate work; provider/transport interfaces are replaceable boundaries. | Replace IPaymentProvider with a deterministic timeout fixture. | What is the cost of five services compared with a modular monolith? |
+| 16 Security/distributed reliability | `src/Shared.Infrastructure/LabHosting.cs`; `src/Shared.Infrastructure/Messaging/OutboxDispatch.cs`; `src/Gateway.Web/Identity/LabRevalidatingAuthenticationStateProvider.cs` | Required identity claims, ownership and durable intent/effect identity solve separate risks. | Run direct invalid-JWT, cross-owner and timeout-after-charge checks. | What can logout revoke immediately, and what waits for revalidation/JWT expiry? |
+| 17 Docker/ECS/observability | `Dockerfile`; `compose.yaml`; `src/Shared.Infrastructure/LabTelemetry.cs`; `compose.tracing.yaml` | Independent images, session limits and safe trace IDs make the local system observable. ECS remains pending. | Stop/start without deleting volumes and compare encrypted-cookie/provider evidence. | Why do local image builds not prove AWS IAM, cost or Neon suspension? |
+
+### Concepts not needed, and comparison topics
+
+- `ref`/`out`, extra generic constraints, covariance/contravariance interfaces and hand-built expression trees: **not needed**. Immutable requests/returned results and concrete typed boundaries suffice; typed JSON responses need no artificial constraint, and EF already translates IQueryable expressions.
+- A Money struct: **not needed** for this single-currency lab's validated integer amounts and checked multiplication. An exercise is to explain what a multiple-currency value object would add before introducing one.
+- In-process domain/C# events, a generic repository and a reflection dispatcher: **not needed**. Explicit handlers plus durable Outbox/Inbox own each transaction. Process synchronization IS used naturally in the quote limiter; it is not claimed to protect distributed business state.
+- OAuth/OIDC/PKCE: **comparison only**. Identity and this lab JWT issuer do not implement them. Exercise: outline discovery/authorization-code/PKCE responsibilities of an external provider; question: what would migrate out of Gateway?
+- MediatR: **not needed**. Exercise: follow a typed command directly; question: which real repetition would justify a dispatcher library?
+- SOAP: **not needed** for the HTTP/JSON contracts. Exercise/question: what compatibility constraints would motivate a SOAP boundary adapter?
+- Jenkins/Sonar: **not implemented**; local scripts provide reproducible checks. Exercise/question: how would a CI pipeline protect private configuration and run the real database suites?
+- Strangler: **comparison only**; this is a student greenfield lab. Exercise/question: describe incremental routing/data ownership when replacing a legacy booking system.
+
+No topic is marked mastered. Browser runtime proof and AWS readiness remain separate evidence obligations.
+
+## Historical LAB-001 examples
 
 | Topic | Concrete implementation | Exercise / interview question |
 |---|---|---|

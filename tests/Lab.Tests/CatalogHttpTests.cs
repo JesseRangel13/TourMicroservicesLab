@@ -27,12 +27,14 @@ public sealed class CatalogHttpTests
         return await client.SendAsync(request);
     }
     private static string ServiceToken(string subject = "reservations", string permission = "quote:create", string audience = "catalog-internal",
-        string issuer = "tourlab-services", int minutes = 2, bool wrongKey = false, bool expired = false)
+        string issuer = "tourlab-services", int minutes = 2, bool wrongKey = false, bool expired = false, bool duplicateSubject = false)
     {
         using var rsa = RSA.Create(3072);
         if (!wrongKey) rsa.ImportFromPem(File.ReadAllText(Path.Combine(IntegrationTests.Root, ".local", "certificates", "reservations-signing.key")));
         var now = DateTime.UtcNow.AddSeconds(-1); if (expired) now = now.AddMinutes(-5);
-        var jwt = new JwtSecurityToken(issuer, audience, [new Claim("sub", subject), new Claim("permission", permission)], now, now.AddMinutes(minutes),
+        var claims = new List<Claim> { new("sub", subject), new("permission", permission) };
+        if (duplicateSubject) claims.Add(new("sub", "payments"));
+        var jwt = new JwtSecurityToken(issuer, audience, claims, now, now.AddMinutes(minutes),
             new SigningCredentials(new RsaSecurityKey(rsa) { CryptoProviderFactory = new CryptoProviderFactory { CacheSignatureProviders = false } }, SecurityAlgorithms.RsaSha256));
         return new JwtSecurityTokenHandler().WriteToken(jwt);
     }
@@ -85,7 +87,7 @@ public sealed class CatalogHttpTests
         var quote = (await valid.Content.ReadFromJsonAsync<QuoteView>())!;
         using var repeat = await Send(client, HttpMethod.Post, "internal/quotes", ServiceToken(), body, false);
         Assert.Equal(quote.QuoteId, (await repeat.Content.ReadFromJsonAsync<QuoteView>())!.QuoteId);
-        foreach (var token in new[] { (string?)null, ServiceToken(wrongKey: true), ServiceToken(audience: "tourlab-api"), ServiceToken(issuer: "tourlab-identity"), ServiceToken(minutes: 3), ServiceToken(expired: true) })
+        foreach (var token in new[] { (string?)null, ServiceToken(wrongKey: true), ServiceToken(audience: "tourlab-api"), ServiceToken(issuer: "tourlab-identity"), ServiceToken(minutes: 3), ServiceToken(expired: true), ServiceToken(duplicateSubject: true) })
         { using var denied = await Send(client, HttpMethod.Post, "internal/quotes", token, body, false); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode); }
         foreach (var token in new[] { ServiceToken(subject: "payments"), ServiceToken(permission: "other") })
         { using var denied = await Send(client, HttpMethod.Post, "internal/quotes", token, body, false); Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode); }
@@ -104,8 +106,10 @@ public sealed class CatalogHttpTests
         var detail = await client.GetStringAsync("https://localhost:8443/tours/10000000-0000-0000-0000-000000000001"); Assert.Contains("Payments and notification delivery are simulated", detail);
         var edit = await client.GetStringAsync("https://localhost:8443/admin/catalog/10000000-0000-0000-0000-000000000001"); Assert.Contains("Save price", edit); Assert.Contains("Save capacity", edit);
         Assert.Contains("Simulated payments", await client.GetStringAsync("https://localhost:8443/payments"));
-        Assert.Contains("Receive up to 10",await client.GetStringAsync("https://localhost:8443/operations"));
-        Assert.Contains("Informational tour projection",await client.GetStringAsync("https://localhost:8443/tour-projections"));
+        var operations = await client.GetStringAsync("https://localhost:8443/operations");
+        Assert.Contains("Receive up to 10", operations); Assert.Contains("\"type\":\"server\"", operations);
+        var projection = await client.GetStringAsync("https://localhost:8443/tour-projections");
+        Assert.Contains("Informational tour projection", projection); Assert.Contains("\"type\":\"server\"", projection);
         Assert.Contains("Simulated notifications", await client.GetStringAsync("https://localhost:8443/notifications"));
         Assert.Contains("Bounded simulated controls", await client.GetStringAsync("https://localhost:8443/admin/simulations"));
     }
