@@ -13,7 +13,10 @@ New-Item -ItemType Directory -Force $rawDirectory | Out-Null
   </TestDefinitions>
   <Results>
     <UnitTestResult testId="one" testName="SECRET-SENTINEL password in theory" outcome="Failed" duration="00:00:01">
-      <Output><StdOut>SECRET-SENTINEL token</StdOut><ErrorInfo><Message>SECRET-SENTINEL connection string</Message><StackTrace>SECRET-SENTINEL private path</StackTrace></ErrorInfo></Output>
+      <Output><StdOut>SECRET-SENTINEL token</StdOut><ErrorInfo><Message>Assert.Equal() Failure: Values differ
+Expected: OK
+Actual: TooManyRequests
+SECRET-SENTINEL connection string</Message><StackTrace>SECRET-SENTINEL private path</StackTrace></ErrorInfo></Output>
     </UnitTestResult>
     <UnitTestResult testId="two" outcome="Passed" duration="00:00:02" />
     <UnitTestResult testId="three" outcome="NotExecuted" />
@@ -25,6 +28,7 @@ $published = (Get-ChildItem $publicDirectory -File | ForEach-Object { Get-Conten
 if ($published.Contains('SECRET-SENTINEL')) { throw 'Sensitive fixture data escaped into reports.' }
 $json = Get-Content -Raw (Join-Path $publicDirectory 'results.json') | ConvertFrom-Json
 if ($json[0].Passed -ne 1 -or $json[0].Failed -ne 1 -or $json[0].Skipped -ne 1) { throw 'Report counters are incorrect.' }
+if ($json[0].Tests[0].ExpectedHttpStatus -ne 'OK' -or $json[0].Tests[0].ActualHttpStatus -ne 'TooManyRequests') { throw 'Allowlisted status diagnostics missing.' }
 [xml]$xml = Get-Content -Raw (Join-Path $publicDirectory 'unit.xml')
 if ($xml.testsuite.testcase.Count -ne 3 -or !$xml.SelectSingleNode('//failure') -or !$xml.SelectSingleNode('//skipped')) { throw 'JUnit results are incomplete.' }
 Write-Host 'Safe report failure/pass/skip and redaction checks passed.'

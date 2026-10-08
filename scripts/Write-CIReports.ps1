@@ -28,7 +28,22 @@ foreach ($file in @(Get-ChildItem -LiteralPath $InputDirectory -Filter '*.trx' -
         $duration = [TimeSpan]::Zero
         [void][TimeSpan]::TryParse($result.duration, [Globalization.CultureInfo]::InvariantCulture, [ref]$duration)
         $name = if ($definitions.ContainsKey($result.testId)) { $definitions[$result.testId] } else { 'UnrecognizedTest' }
-        $rows += [pscustomobject]@{ Test = $name; Outcome = $outcome; Seconds = [Math]::Max(0, $duration.TotalSeconds) }
+        $category = ''; $expectedStatus = ''; $actualStatus = ''
+        if ($outcome -eq 'Failed') {
+            $message = $result.SelectSingleNode(".//*[local-name()='ErrorInfo']/*[local-name()='Message']")
+            if ($message -and $message.InnerText -match '^Assert\.([A-Za-z]+)\(\) Failure') { $category = "Assert.$($Matches[1])" }
+            # Status enum names are an explicit finite allowlist, never arbitrary assertion values.
+            foreach ($field in @('Expected', 'Actual')) {
+                if ($message -and $message.InnerText -match "(?m)^$field`: +([A-Za-z]+)\s*$") {
+                    $status = $Matches[1]
+                    if ($status -cin [Enum]::GetNames([System.Net.HttpStatusCode])) {
+                        if ($field -eq 'Expected') { $expectedStatus = $status } else { $actualStatus = $status }
+                    }
+                }
+            }
+        }
+        $rows += [pscustomobject]@{ Test = $name; Outcome = $outcome; Seconds = [Math]::Max(0, $duration.TotalSeconds);
+            FailureCategory = $category; ExpectedHttpStatus = $expectedStatus; ActualHttpStatus = $actualStatus }
     }
     $passed = @($rows | Where-Object Outcome -eq 'Passed').Count
     $failed = @($rows | Where-Object Outcome -eq 'Failed').Count
@@ -36,7 +51,9 @@ foreach ($file in @(Get-ChildItem -LiteralPath $InputDirectory -Filter '*.trx' -
     $suite = $file.BaseName
     $summaries += [pscustomobject]@{ Suite = $suite; Passed = $passed; Failed = $failed; Skipped = $skipped; Tests = $rows }
     $markdown += "| $suite | $passed | $failed | $skipped |"
-    foreach ($failure in $rows | Where-Object Outcome -eq 'Failed') { $failureNotes += "Failed: ``$($failure.Test)``. Reproduce locally for private diagnostics." }
+    foreach ($failure in $rows | Where-Object Outcome -eq 'Failed') {
+        $failureNotes += "Failed: ``$($failure.Test)`` ($($failure.FailureCategory); expected HTTP $($failure.ExpectedHttpStatus), actual HTTP $($failure.ActualHttpStatus)). Reproduce locally for private diagnostics."
+    }
 
     $junit = [System.Xml.XmlDocument]::new()
     $root = $junit.CreateElement('testsuite')
