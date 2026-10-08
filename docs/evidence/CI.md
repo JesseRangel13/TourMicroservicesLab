@@ -23,28 +23,44 @@ Environment: Windows PowerShell 7, .NET SDK 10.0.401, Docker Desktop Linux 29.6.
 | Check | Actual result |
 |---|---|
 | Locked solution restore | Passed; private `.local/ci-restore.log` |
-| Release solution build | Passed, zero warnings/errors, 21.11 seconds; private `.local/ci-build.log` |
+| Release solution builds | Passed, zero warnings/errors; initial 21.11s and final 17.32s; private `.local/ci-build.log` and `.local/ci-build-final.log` |
 | Safe report failure/pass/skip fixture | Passed; fictional sensitive display-name/stdout/error/stack content omitted, failure preserved |
 | Unit/contract/resilience/client-lifetime suite | 29 passed, zero failures/skips |
 | All five Docker images | Built successfully with locked restore and Release publish; private `.local/ci-images.log` |
 | Actual stop/start persistence | One passed, zero failures/skips, 1m32s; all five hosts restored healthy |
 | Credential limiter (last) | One passed, zero failures/skips |
-| Controlled messaging/payment/Saga/operations suite | 27 passed, zero failures/skips, 3m22s |
+| Controlled messaging/payment/Saga/operations | Initial combined 27 passed; final isolated groups 8 messaging / 5 payment / 10 Saga / 4 operations passed with zero failures/skips |
 | Start-CI refusal and missing-report handling | Passed: existing Windows lab refused; no-report summary explicitly generated |
 | actionlint 1.7.7 | Passed against `.github/workflows/ci.yml`; official release download verified against release SHA-256 checksums |
 | PowerShell parser / diff whitespace | Passed |
 | Initial live suite, concurrent image build | 65 passed, one failed, 29 intentionally skipped; unrelated timing finding below; private `.local/ci-live-initial.trx` |
 
-The live rerun without concurrent image compilation also produced **65 passed, one failed, 29 intentionally skipped**, but with a different failure: ConcurrentOwnersCannotReadFilterOrCancelEachOthersDurableResources expected 202 Accepted and received 503 ServiceUnavailable (2m25s); the slow-Catalog test passed in that run. Additional local suite and GitHub execution results will be recorded after completion. At this point no GitHub success is claimed. Authenticated read access to the repository and enabled Actions were verified; remote main matches the inspected local base.
+The live rerun without concurrent image compilation also produced **65 passed, one failed, 29 intentionally skipped**, but with a different failure: ConcurrentOwnersCannotReadFilterOrCancelEachOthersDurableResources expected 202 Accepted and received 503 ServiceUnavailable (2m25s); the slow-Catalog test passed in that run. The final isolated controlled groups also passed locally. The observed successful Linux run is recorded below; these local live failures remain separately documented. Authenticated read access to the repository and enabled Actions were verified; remote main matches the inspected local base.
 
 ## Observed GitHub execution
 
 [Run 37856036467](https://github.com/JesseRangel13/TourMicroservicesLab/actions/runs/37856036467), PR #1, commit e6527d8, completed with **failure**. Actual hosted Linux results: locked restore/Release build, report redaction, 29 unit cases, isolated TLS/PostgreSQL/ElasticMQ provisioning and five images passed; live suite 66 passed / 29 deliberate skips; controlled suite 20 passed / seven failed; restart and limiter each passed. Safe report upload and run-specific container stop passed. The seven downloaded files were inspected and contained only allowlisted report formats and fields. Independent suites continued after the controlled failure and the job correctly stayed red.
 
-Controlled failures were five MessagingTests (claim fencing, rollback, real Catalog outage, send-before-mark, commit recovery), ProviderCommitCrashConcurrentRecoveryAndTimeoutLookupNeverChargeAgain, and PaymentPauseConfigurationDoesNotRewriteAcceptedProviderMode. Their Windows equivalents passed. A follow-up run adds finite-allowlist HTTP status names and assertion categories to safe reports to distinguish Linux dependency/test isolation causes without exporting raw diagnostics. No successful full GitHub run is claimed at this stage.
+Controlled failures were five MessagingTests (claim fencing, rollback, real Catalog outage, send-before-mark, commit recovery), ProviderCommitCrashConcurrentRecoveryAndTimeoutLookupNeverChargeAgain, and PaymentPauseConfigurationDoesNotRewriteAcceptedProviderMode. Their Windows equivalents passed. A follow-up run adds finite-allowlist HTTP status names and assertion categories to safe reports to distinguish Linux dependency/test isolation causes without exporting raw diagnostics. This was an intermediate failed run, superseded by the successful corrected run below.
 [Run 37856758828](https://github.com/JesseRangel13/TourMicroservicesLab/actions/runs/37856758828), commit 30436cd, also completed with failure: the same 20/7 controlled results, all other steps passed. Its allowlisted diagnostics identified two HTTP 429 Admin-throttle failures and four HTTP 503 booking failures following the outage test. The runner image's official software inventory declares Docker Compose 2.38.2; its [start command source](https://github.com/docker/compose/blob/v2.38.2/cmd/compose/start.go) does not expose --wait. Local Docker Desktop uses Compose 5.3.1, which accepts it.
 
-CI corrections: controlled Messaging/Payments/Sagas/Operations groups now run separately with fresh paused business containers per group (data retained, real limits unchanged). The outage test restores Catalog with supported `up -d --wait`, preserving the actual outage/no-work assertions. No runtime rate-limit override, retry of a payment effect, test exclusion or weakened business assertion was introduced. These harness corrections will be verified in another actual Linux run.
+CI corrections: controlled Messaging/Payments/Sagas/Operations groups now run separately with fresh paused business containers per group (data retained, real limits unchanged). The outage test restores Catalog with supported `up -d --wait`, preserving the actual outage/no-work assertions. No runtime rate-limit override, retry of a payment effect, test exclusion or weakened business assertion was introduced. These harness corrections passed the actual Linux run below.
+
+[Run 37859921140](https://github.com/JesseRangel13/TourMicroservicesLab/actions/runs/37859921140), commit 415105a, completed with **SUCCESS**, observed through GitHub's job/step results and downloaded reports. Every required step, artifact upload and cleanup passed on the standard ubuntu-24.04 runner:
+
+| Group | Passed | Failed | Intentionally skipped |
+|---|---:|---:|---:|
+| Unit/contract/resilience/client lifetime | 29 | 0 | 0 |
+| Normal live suite | 66 | 0 | 29 |
+| Controlled messaging | 8 | 0 | 0 |
+| Controlled payments | 5 | 0 | 0 |
+| Controlled Sagas | 10 | 0 | 0 |
+| Controlled operations | 4 | 0 | 0 |
+| Actual stop/start persistence | 1 | 0 | 0 |
+| Credential limiter | 1 | 0 | 0 |
+
+The 29 pure cases run again in the normal suite; unique backend coverage is **95**, not the sum of all passed counters. The normal suite's 29 skips are exactly the dedicated 27 controlled, restart and limiter cases, which pass separately. All nine projects built in Release; all five service images built and started healthy with verified TLS, real PostgreSQL, isolated roles/migrations/seeds and real ElasticMQ. The ten-file test-reports artifact was downloaded and checked: only eight JUnit documents, results.json and summary.md, no raw TRX/logs/private configuration/certificates. Actual failure upload behavior was observed in the first two runs; it was not inferred from YAML alone.
+
 ## Unrelated finding — Gateway quote timeout boundary
 
 The initial local live run failed `OperationsTests.SlowCatalogFiveFailuresOpenCircuitThenRecoveryCreatesWorkOnlyAfterQuoteSucceeds`: expected 503 ServiceUnavailable, actual 504 GatewayTimeout. No application or test behavior was changed to mask it. The generated Gateway YARP route uses a ten-second ActivityTimeout while Reservations has a ten-second total quote budget; the outer timeout can win before the dependency failure response reaches Gateway. A rerun without concurrent compilation passed this slow-Catalog test but failed reservation creation in the ownership test with 503 instead of 202. The initial 504 is consistent with the outer timeout boundary, but its repeatability and the second failure cause are not established. No application fix is included. The test stays enabled and a failure blocks CI. The earlier 40-second typed-client fix does not itself increase YARP's route ActivityTimeout. Treat alignment of the outer proxy budget as a separate application change, with its own verification.
@@ -59,4 +75,4 @@ The initial local live run failed `OperationsTests.SlowCatalogFiveFailuresOpenCi
 | Merge checks/manual settings/diagnosis | `docs/ci.md`; repository policy not changed |
 | Preserve application behavior/data | No application code, test business assertions, migrations, queues or volumes removed/modified |
 
-Browser Playwright, long session expiry/navigation, optional collector/viewer, cloud/Neon/IAM and merge-rule enforcement remain separate. GitHub run observation, fork approval behavior, cancellation under load and first push-to-main execution must not be inferred from local validation. No resource deployment or image push occurred.
+Browser Playwright, long session expiry/navigation, optional collector/viewer, cloud/Neon/IAM and merge-rule enforcement remain separate. Actual PR execution on GitHub is verified above. Fork approval behavior, cancellation under load and first push-to-main execution are not exercised; their configuration is linted/documented. Required merge rules still need manual configuration. No resource deployment or image push occurred.
