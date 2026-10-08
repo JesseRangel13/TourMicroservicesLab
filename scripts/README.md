@@ -11,6 +11,10 @@ They operate only on the `tourlab-local` Compose project; none call AWS or purge
 | Stop-Local.ps1 | Gracefully stop containers, preserving named volumes and private settings. |
 | Verify-Local.ps1 | Locked restore, build, and real local database/HTTP checks. |
 | Verify-Restart.ps1 | Explicit stop/start verification of database, queue message, and cookie persistence. |
+| Start-CI.ps1 | Fresh GitHub-hosted Linux runner only: private configuration, trusted CA, isolated Compose project, owned migrations/queues, five image builds and HTTPS startup. Refuses existing `.local`. |
+| Verify-CI.ps1 | Release/no-build test groups: Unit, Live, Controlled, Restart, RateLimit. Captures raw output privately, restores worker configuration in finally and produces safe reports. |
+| Write-CIReports.ps1 | Reconstruct allowlisted JUnit/JSON/Markdown reports from private TRX, without diagnostic text, parameters, credentials or paths. |
+| Test-CIReports.ps1 | Fictional sensitive-data failure fixture verifies pass/fail/skip reporting and redaction. |
 
 Only the one-shot provisioner reads `.local/provisioner.json`. Review/configure seeded users privately
 before first bootstrap. Runtime mount lists are intentionally service-specific. The CA private key
