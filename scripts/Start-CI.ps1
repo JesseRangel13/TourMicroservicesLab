@@ -6,6 +6,8 @@ if (!$IsLinux -or $env:GITHUB_ACTIONS -ne 'true' -or $env:COMPOSE_PROJECT_NAME -
     throw 'Start-CI requires a GitHub-hosted Linux job with a run-specific tourlab-ci project.'
 }
 if (Test-Path .local) { throw 'CI requires a fresh workspace; existing private configuration is never overwritten.' }
+docker compose version
+if ($LASTEXITCODE -ne 0) { throw 'Docker Compose is required.' }
 New-Item -ItemType Directory .local | Out-Null
 chmod 700 .local
 if ($LASTEXITCODE -ne 0) { throw 'Private directory permissions failed.' }

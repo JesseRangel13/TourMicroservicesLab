@@ -6,10 +6,10 @@ $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
 $summaries = @()
 $failureNotes = @()
-$markdown = @('# CI test results', '', 'Only code identifiers, outcomes and durations are published. Assertion messages, parameters, stack traces, machine paths and stdout are omitted.', '', '| Suite | Passed | Failed | Skipped |', '|---|---:|---:|---:|')
+$markdown = @('# CI test results', '', 'Only code identifiers, outcomes, durations, assertion categories and allowlisted HTTP status names are published. Raw assertion messages, parameters, stack traces, machine paths and stdout are omitted.', '', '| Suite | Passed | Failed | Skipped |', '|---|---:|---:|---:|')
 foreach ($file in @(Get-ChildItem -LiteralPath $InputDirectory -Filter '*.trx' -ErrorAction SilentlyContinue)) {
     # Suite names are controlled by Verify-CI; never export arbitrary input filenames.
-    if ($file.BaseName -notin @('unit', 'live', 'controlled', 'restart', 'ratelimit')) { continue }
+        if ($file.BaseName -notin @('unit', 'live', 'controlled-messaging', 'controlled-payments', 'controlled-sagas', 'controlled-operations', 'restart', 'ratelimit')) { continue }
     $settings = [System.Xml.XmlReaderSettings]::new()
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     $reader = [System.Xml.XmlReader]::Create($file.FullName, $settings)
