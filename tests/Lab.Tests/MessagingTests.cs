@@ -196,7 +196,9 @@ public sealed class MessagingTests
             await using var db = ReservationTestSupport.Reservations(); Assert.False(await db.Idempotency.AnyAsync(i => i.UserId == alice.Id && i.Key == key));
             Assert.False(await db.Reservations.AnyAsync(r => r.SessionId == session.Id)); Assert.False(await db.Sagas.AnyAsync(s => db.Reservations.Any(r => r.Id == s.ReservationId && r.SessionId == session.Id)));
         }
-        finally { await DockerAsync("start", "--wait", "catalog"); }
+        // Compose 2.38 on hosted Linux supports --wait on up, not on start.
+        // Reuse the existing container/configuration and wait for real HTTPS health.
+        finally { await DockerAsync("up", "-d", "--wait", "catalog"); }
     }
     private static async Task DockerAsync(params string[] args)
     {

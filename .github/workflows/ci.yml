@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR updates supersede older PR checks; every main push keeps its own audit build.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Build, tests and five images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      COMPOSE_PROJECT_NAME: tourlab-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install .NET SDK from global.json
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          global-json-file: global.json
+      - name: Restore locked dependencies
+        run: |
+          dotnet restore TourMicroservicesLab.slnx --locked-mode
+          if ($LASTEXITCODE -ne 0) { throw 'Locked restore failed.' }
+      - name: Build Release
+        run: |
+          dotnet build TourMicroservicesLab.slnx -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+      - name: Check report redaction
+        run: ./scripts/Test-CIReports.ps1
+      - name: Unit and contract tests
+        run: ./scripts/Verify-CI.ps1 -Suite Unit
+      - name: Provision isolated local lab and build five images
+        id: lab
+        timeout-minutes: 15
+        run: ./scripts/Start-CI.ps1
+      - name: Live database, HTTP, security and resilience tests
+        timeout-minutes: 8
+        run: ./scripts/Verify-CI.ps1 -Suite Live
+      - name: Controlled messaging, payment, Saga and operations tests
+        if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
+        timeout-minutes: 8
+        run: ./scripts/Verify-CI.ps1 -Suite Controlled
+      - name: Stop and start persistence test
+        if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
+        timeout-minutes: 4
+        run: ./scripts/Verify-CI.ps1 -Suite Restart
+      - name: Credential rate limiter test (last)
+        if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
+        timeout-minutes: 2
+        run: ./scripts/Verify-CI.ps1 -Suite RateLimit
+      - name: Prepare safe reports and job summary
+        if: always()
+        run: |
+          ./scripts/Write-CIReports.ps1
+          if ($env:GITHUB_STEP_SUMMARY) {
+            Get-Content TestResults/ci/public/summary.md | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+      - name: Upload safe test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-reports
+          path: TestResults/ci/public/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stop only this run's containers (preserve data)
+        if: always()
+        timeout-minutes: 2
+        run: |
+          if (Test-Path .local/provisioner.json) {
+            docker compose stop
+            if ($LASTEXITCODE -ne 0) { throw 'CI container stop failed.' }
+          }
