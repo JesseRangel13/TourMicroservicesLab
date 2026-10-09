@@ -4,7 +4,7 @@ The workflow is `.github/workflows/ci.yml`. It runs for every pull request (incl
 
 ## Triggers and dependencies
 
-One job has the stable check name **Build, tests and five images** and a 35-minute timeout. One job keeps the disruptive integration groups sequential, avoids duplicate image builds and does not require sharing private configuration or images through artifacts. Superseded runs for the same PR or branch are cancelled. Different PRs get different disposable runner VMs and Compose projects `tourlab-ci-{run_id}-{run_attempt}`. Fork PR approval policy remains controlled by the repository owner.
+One job has the stable check name **Build, tests and five images** and a 35-minute timeout. One job keeps the disruptive integration groups sequential, avoids duplicate image builds and does not require sharing private configuration or images through artifacts. Superseded runs for the same PR are cancelled. Each push to main uses its unique run ID as the concurrency key and disables automatic cancellation, preserving both running and pending audit builds. Merely setting cancel-in-progress to false with a shared main key would still permit replacement of an older pending run. Different PRs get different disposable runner VMs and Compose projects `tourlab-ci-{run_id}-{run_attempt}`. Fork PR approval policy remains controlled by the repository owner.
 
 The ordered steps are:
 

@@ -1,5 +1,15 @@
 # GitHub Actions CI evidence
 
+## Review follow-up — October 9, 2026
+
+Findings 1–3 were checked against the actual workflow and require no correction: safe report preparation and upload already use `if: always()`; all three actions have verified 40-character SHA pins and tag comments; Start-CI invokes the existing configuration generator before Compose startup, trusts the generated CA and bootstraps isolated roles/migrations/queues before integration tests. The historical failed GitHub runs below demonstrate actual artifact upload after test failure. Raw TRX/logs remain intentionally private; only reconstructed safe reports are uploaded.
+
+Finding 4 is corrected: cancellation is enabled only for `pull_request`; the group uses the PR number for PRs and unique run ID for each main push. Unique main groups also prevent default concurrency replacement of older pending main runs. This workflow has no deployment, but preserves every main audit build as requested.
+
+Actual follow-up validation: actionlint 1.7.7 and whitespace checks passed; four local concurrency-key cases passed (two updates to the same PR share a key/cancel=true; two main pushes have distinct keys/cancel=false). No application or backend test behavior changed. Real back-to-back main push cancellation behavior is not exercised: no merge or push to main was performed.
+
+The October 8 observed GitHub results below remain historical evidence for the backend pipeline. A new PR run follows the configuration-only update; its result must be checked independently.
+
 Date: October 8, 2026 (America/Mexico_City). Scope: CI only, existing LAB-001–007 implementation. No LAB-008/009, cloud database, image publication, AWS deployment or paid resources.
 
 ## Inspection and implementation
