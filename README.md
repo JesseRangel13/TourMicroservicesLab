@@ -79,6 +79,11 @@ returns 404 for internal paths. No service-token issuing HTTP endpoint exists.
 
 ## Checks and debugging
 
+GitHub Actions CI runs on pull requests and pushes to main using a disposable Linux runner,
+.NET 10 Release builds, real isolated PostgreSQL/ElasticMQ, all backend test groups and all five
+Docker images. It does not publish images or deploy. See [CI operation and required merge checks](docs/ci.md)
+and [actual CI validation evidence](docs/evidence/CI.md). Browser checks remain a separate local suite.
+
 ```powershell
 dotnet build --no-restore
 dotnet test --no-build # pure tests run; local integration/restart tests report SKIP explicitly

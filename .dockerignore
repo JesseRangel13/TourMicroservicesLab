@@ -6,3 +6,10 @@
 **/*.key
 **/*.pem
 TestResults
+**/TestResults
+**/node_modules
+tests/EndToEnd/test-results
+tests/EndToEnd/playwright-report
+.github
+docs
+scripts
