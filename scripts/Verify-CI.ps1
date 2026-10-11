@@ -12,7 +12,7 @@ foreach ($name in $names) {
 }
 $paused = $Suite -in @('Controlled', 'Restart')
 $filters = @{
-    Unit = 'FullyQualifiedName~RuntimeOptionsTests|FullyQualifiedName~JwtValidationTests|FullyQualifiedName~CatalogContractTests|FullyQualifiedName~MessagingContractTests|FullyQualifiedName~QuoteResilienceTests|FullyQualifiedName~CircuitIsolationTests'
+    Unit = 'FullyQualifiedName~RuntimeOptionsTests|FullyQualifiedName~RuntimeSecretFilesTests|FullyQualifiedName~ExternalProvisioningTests|FullyQualifiedName~JwtValidationTests|FullyQualifiedName~CatalogContractTests|FullyQualifiedName~MessagingContractTests|FullyQualifiedName~QuoteResilienceTests|FullyQualifiedName~CircuitIsolationTests'
     Restart = 'FullyQualifiedName~PersistenceTests'
     RateLimit = 'FullyQualifiedName~CredentialLimiterRejectsChangingUntrustedForwardedAddresses'
 }

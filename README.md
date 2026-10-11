@@ -11,6 +11,8 @@ LAB-006 adds bounded quote resilience, JSON/OpenTelemetry correlation, service-o
 LAB-007 hardens required JWT identities, ownership/session checks and UI lifetimes; corrects operations/projection interactivity; and supplies focused security/browser tests and a consolidated evidence matrix. Browser runtime verification remains outstanding.
 The specifications below and in `specs/` remain the source of truth.
 
+LAB-008 adds reviewable Fargate Terraform, private PEM/SSM runtime support, an external one-shot migration path and guarded session scripts. **No AWS deployment or Neon connection was performed.** Start with [AWS handoff](docs/aws-execution.md), [cost worksheet](docs/costs.md), [Terraform checks](infra/terraform/README.md) and [actual LAB-008 evidence](docs/evidence/LAB-008.md). Deployment remains a separately authorized LAB-009 task; default desired counts are zero.
+
 ## Run locally on Windows
 
 Prerequisites: PowerShell 7, .NET SDK **10.0.401**, and Docker Desktop using Linux containers.

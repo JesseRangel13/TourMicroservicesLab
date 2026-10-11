@@ -26,11 +26,12 @@ public static class LabHosting
     }
     public static void AddPrivateConfiguration(this WebApplicationBuilder builder)
     {
-        var path = Environment.GetEnvironmentVariable("LAB_CONFIG");
+        var path = RuntimeSecretFiles.Materialize() ?? Environment.GetEnvironmentVariable("LAB_CONFIG");
         if (string.IsNullOrWhiteSpace(path))
             throw new InvalidOperationException("LAB_CONFIG must point to a private configuration file. Run scripts/New-LocalConfiguration.ps1.");
         builder.Configuration.AddJsonFile(Path.GetFullPath(path), optional: false, reloadOnChange: false)
             .AddEnvironmentVariables();
+        builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(90));
         builder.Logging.ClearProviders();
         builder.Logging.AddJsonConsole(o => o.IncludeScopes = true);
         builder.AddLabTelemetry();

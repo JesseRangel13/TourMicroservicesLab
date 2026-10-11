@@ -19,7 +19,7 @@ public static class ReservationEndpoints
         services.AddSingleton(TimeProvider.System); services.AddSingleton<ServiceTokenIssuer>(); services.AddSingleton<QuoteConcurrencyLimit>();
         services.AddHttpClient<ICatalogQuoteClient, CatalogQuoteClient>((sp, client) =>
         { var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogClientOptions>>().Value; client.BaseAddress = new Uri(o.BaseAddress); client.Timeout = Timeout.InfiniteTimeSpan; })
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10, PooledConnectionLifetime = TimeSpan.FromMinutes(2) });
         services.AddScoped<ReservationCreator>(); services.AddScoped<ReservationQueries>();
         services.AddOptions<SagaRecoveryOptions>().Bind(config.GetSection("SagaRecovery"))
             .Validate(o=>o.AvailabilitySeconds is >=1 and <=300 && o.ConfirmationSeconds is >=1 and <=300 && o.PaymentSeconds is >=1 and <=120 && o.RecoverySeconds is >=100 and <=600,"Bounded durable Saga deadlines required.").ValidateOnStart();

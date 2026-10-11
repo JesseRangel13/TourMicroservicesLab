@@ -12,4 +12,5 @@ tests/EndToEnd/test-results
 tests/EndToEnd/playwright-report
 .github
 docs
+infra/terraform
 scripts

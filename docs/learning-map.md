@@ -161,6 +161,19 @@ Historical LAB-003/004 sections describe their staged boundaries. Current LAB-00
 cancellation and deadline recovery. LAB-006 now supplies diagnostics/observability; automated browser
 circuit isolation remains LAB-007. No learning topic is automatically marked mastered.
 
+## LAB-008: infrastructure boundaries and runtime security
+
+| Actual paths | Applied topics / exercise |
+|---|---|
+| `src/Shared.Infrastructure/RuntimeSecretFiles.cs`, `RuntimeDatabaseOptions.cs`, `tests/Lab.Tests/RuntimeSecretFilesTests.cs` | Nullable optional runtime adapter, finite concrete file mapping, deterministic disposal, Linux permissions, TLS trust and Options validation. Explain why public OS roots and the private API CA both matter. |
+| `src/Shared.Infrastructure/LabHosting.cs`, `infra/terraform/ecs.tf` | Dependency-free liveness middleware, DI HostOptions shutdown90s and ECS stop120s. Explain how cancellation and durable leases recover interrupted messages. |
+| `src/Gateway.Web/Program.cs`, `src/Reservations.Api/ReservationEndpoints.cs` | HttpClientFactory connection lifetimes and private DNS changes; retained per-operation Identity contexts. Explain why Cloud Map does not balance Interactive Server circuits. |
+| `tools/Lab.Provisioner/ExternalProvisioning.cs`, `DatabaseBootstrap.cs`, `tests/Lab.Tests/ExternalProvisioningTests.cs` | Typed provisioning records, async/cancellation, separate migration/runtime connections, VerifyFull and pool bounds. Prove external settings validation makes no network call. |
+| `infra/terraform/iam.tf`, `network.tf`, `tests/study.tftest.hcl`, `scripts/aws/Test-Guards.ps1` | Task vs execution identity, security group boundaries, exact secret paths, scoped lifecycle authorization and negative tests. Explain why a prefix alone is insufficient proof of ownership. |
+| `docs/costs.md`, `scripts/aws/Invoke-Session.ps1` | Measured sizing versus assumptions, budgets versus billing caps, explicit pause and verification. Recalculate your session using changed sizes/hours. |
+
+No topic is marked mastered by these artifacts. Cloud IAM, Neon role denials and actual task replacement remain LAB-009 exercises.
+
 ## LAB-006: bounded operations and observability
 
 | Actual code | Concepts | Exercise / interview question |

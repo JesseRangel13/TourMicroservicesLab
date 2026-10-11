@@ -7,9 +7,9 @@ namespace Lab.Provisioner;
 public static class LocalConfiguration
 {
     public static readonly string[] Schemas = ["catalog", "reservations", "payments", "notifications", "identity"];
-    public static void Generate(string root)
+    public static void Generate(string root, string? privateDirectory = null)
     {
-        var directory = Path.Combine(root, ".local");
+        var directory = privateDirectory ?? Path.Combine(root, ".local");
         if (File.Exists(Path.Combine(directory, "provisioner.json")))
             throw new InvalidOperationException("Private configuration already exists; reuse it. Rotation is separate.");
         Directory.CreateDirectory(directory);
@@ -135,4 +135,5 @@ public static class LocalConfiguration
 }
 public sealed record SeedUser(string Name, string Email, string Password, string Role);
 public sealed record ProvisioningSettings(string AdminConnection, Dictionary<string, string> RuntimePasswords,
-    Dictionary<string, string> MigrationPasswords, SeedUser[] Users);
+    Dictionary<string, string> MigrationPasswords, SeedUser[] Users,
+    Dictionary<string, string>? RuntimeConnections = null, Dictionary<string, string>? MigrationConnections = null);

@@ -23,7 +23,7 @@ builder.Services.AddOptions<Gateway.Web.Catalog.GatewayApiOptions>().BindConfigu
     .Validate(o => Uri.TryCreate(o.BaseAddress, UriKind.Absolute, out var uri) && uri.Scheme == "https", "HTTPS Gateway API address required.").ValidateOnStart();
 // Include the configurable quote budget (up to thirty seconds) and caller/TLS overhead.
 builder.Services.AddHttpClient("GatewayApi", client => client.Timeout = TimeSpan.FromSeconds(40))
-    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10 });
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false, MaxConnectionsPerServer = 10, PooledConnectionLifetime = TimeSpan.FromMinutes(2) });
 builder.Services.AddScoped<Gateway.Web.Catalog.CatalogClient>();
 builder.Services.AddScoped<Gateway.Web.Reservations.ReservationClient>();
 builder.Services.AddScoped<Gateway.Web.Business.BusinessClient>();
@@ -31,12 +31,13 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, LabRevalidatingAuthenticationStateProvider>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(o => o.DetailedErrors = false);
 builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = CookieSecurePolicy.Always);
-var protectionCertificate = X509CertificateLoader.LoadPkcs12FromFile(
+var protectionCertificate = RuntimeSecretFiles.ProtectionCertificate(
     builder.Configuration["DataProtection:CertificatePath"]
-    ?? throw new InvalidOperationException("Data Protection certificate is required."), null);
+    ?? throw new InvalidOperationException("Data Protection certificate is required."), builder.Configuration["DataProtection:KeyPath"]);
 builder.Services.AddDataProtection().SetApplicationName("TourMicroservicesLab.Gateway")
     .PersistKeysToDbContext<IdentityDb>().ProtectKeysWithCertificate(protectionCertificate);
-builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+builder.Services.AddReverseProxy().ConfigureHttpClient((_, handler) => handler.PooledConnectionLifetime = TimeSpan.FromMinutes(2))
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = 429;

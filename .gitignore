@@ -9,6 +9,11 @@ TestResults/
 **/*.key
 **/*.pem
 **/terraform.tfstate*
+**/.terraform/
+**/*.tfplan
+**/*.tfvars
+**/*.tfvars.json
+!**/example.tfvars.json
 **/node_modules/
 tests/EndToEnd/test-results/
 tests/EndToEnd/playwright-report/

@@ -34,7 +34,7 @@ public static class DatabaseBootstrap
                 ALTER DEFAULT PRIVILEGES FOR ROLE {schema}_migrator IN SCHEMA {schema}
                     GRANT USAGE, SELECT ON SEQUENCES TO {schema}_runtime;
                 """, ct);
-            await using var migrator = new NpgsqlConnection(LocalConfiguration.Connection("localhost", $"{schema}_migrator", settings.MigrationPasswords[schema], certDir));
+            await using var migrator = new NpgsqlConnection(Connection(settings, schema, true, certDir));
             await migrator.OpenAsync(ct);
             await ExecuteAsync(migrator, $"""
                 CREATE TABLE IF NOT EXISTS {schema}."SchemaVersion" ("Version" integer PRIMARY KEY);
@@ -43,7 +43,7 @@ public static class DatabaseBootstrap
         }
         var migrationServices = new ServiceCollection();
         migrationServices.AddLogging(o => o.SetMinimumLevel(LogLevel.Warning));
-        migrationServices.AddLabIdentity(LocalConfiguration.Connection("localhost", "identity_migrator", settings.MigrationPasswords["identity"], certDir));
+        migrationServices.AddLabIdentity(Connection(settings, "identity", true, certDir));
         await using (var provider = migrationServices.BuildServiceProvider())
         {
             await using var scope = provider.CreateAsyncScope();
@@ -52,7 +52,7 @@ public static class DatabaseBootstrap
         var runtimeServices = new ServiceCollection();
         await ExecuteAsync(admin, "REVOKE ALL ON identity.\"__EFMigrationsHistory\" FROM identity_runtime;", ct);
         runtimeServices.AddLogging(o => o.SetMinimumLevel(LogLevel.Warning));
-        runtimeServices.AddLabIdentity(LocalConfiguration.Connection("localhost", "identity_runtime", settings.RuntimePasswords["identity"], certDir));
+        runtimeServices.AddLabIdentity(Connection(settings, "identity", false, certDir));
         await using (var provider = runtimeServices.BuildServiceProvider())
         {
             await using var scope = provider.CreateAsyncScope();
@@ -74,28 +74,35 @@ public static class DatabaseBootstrap
             }
         }
         var catalogMigration = new DbContextOptionsBuilder<CatalogDb>().UseNpgsql(
-            LocalConfiguration.Connection("localhost", "catalog_migrator", settings.MigrationPasswords["catalog"], certDir),
+            Connection(settings, "catalog", true, certDir),
             o => o.MigrationsHistoryTable("__EFMigrationsHistory", "catalog")).Options;
         await using (var db = new CatalogDb(catalogMigration)) await db.Database.MigrateAsync(ct);
         await ExecuteAsync(admin, "REVOKE ALL ON catalog.\"__EFMigrationsHistory\" FROM catalog_runtime;", ct);
         var catalogRuntime = new DbContextOptionsBuilder<CatalogDb>().UseNpgsql(
-            LocalConfiguration.Connection("localhost", "catalog_runtime", settings.RuntimePasswords["catalog"], certDir)).Options;
+            Connection(settings, "catalog", false, certDir)).Options;
         await using (var db = new CatalogDb(catalogRuntime)) await CatalogSeed.RunAsync(db, ct);
         var reservationsMigration = new DbContextOptionsBuilder<ReservationsDb>().UseNpgsql(
-            LocalConfiguration.Connection("localhost", "reservations_migrator", settings.MigrationPasswords["reservations"], certDir),
+            Connection(settings, "reservations", true, certDir),
             o => o.MigrationsHistoryTable("__EFMigrationsHistory", "reservations")).Options;
         await using (var db = new ReservationsDb(reservationsMigration)) await db.Database.MigrateAsync(ct);
         await ExecuteAsync(admin, "REVOKE ALL ON reservations.\"__EFMigrationsHistory\" FROM reservations_runtime;", ct);
         var paymentsMigration = new DbContextOptionsBuilder<Payments.Api.Persistence.PaymentsDb>().UseNpgsql(
-            LocalConfiguration.Connection("localhost", "payments_migrator", settings.MigrationPasswords["payments"], certDir),
+            Connection(settings, "payments", true, certDir),
             o => o.MigrationsHistoryTable("__EFMigrationsHistory", "payments")).Options;
         await using (var db = new Payments.Api.Persistence.PaymentsDb(paymentsMigration)) await db.Database.MigrateAsync(ct);
         var notificationsMigration = new DbContextOptionsBuilder<Notifications.Api.Persistence.NotificationsDb>().UseNpgsql(
-            LocalConfiguration.Connection("localhost", "notifications_migrator", settings.MigrationPasswords["notifications"], certDir),
+            Connection(settings, "notifications", true, certDir),
             o => o.MigrationsHistoryTable("__EFMigrationsHistory", "notifications")).Options;
         await using (var db = new Notifications.Api.Persistence.NotificationsDb(notificationsMigration)) await db.Database.MigrateAsync(ct);
         await ExecuteAsync(admin, "REVOKE ALL ON payments.\"__EFMigrationsHistory\" FROM payments_runtime; REVOKE ALL ON notifications.\"__EFMigrationsHistory\" FROM notifications_runtime;", ct);
         Console.WriteLine("All five owned schemas migrated and samples seeded without resetting existing data.");
+    }
+    private static string Connection(ProvisioningSettings settings, string schema, bool migration, string certDir)
+    {
+        var connections = migration ? settings.MigrationConnections : settings.RuntimeConnections;
+        if (connections is not null) return connections[schema];
+        return LocalConfiguration.Connection("localhost", schema + (migration ? "_migrator" : "_runtime"),
+            (migration ? settings.MigrationPasswords : settings.RuntimePasswords)[schema], certDir);
     }
     private static void Ensure(IdentityResult result)
     {

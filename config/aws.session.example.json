@@ -1,0 +1,84 @@
+{
+  "region": "us-east-1",
+  "cluster": "tourlab-study",
+  "services": {
+    "notifications": "tourlab-study-notifications",
+    "payments": "tourlab-study-payments",
+    "reservations": "tourlab-study-reservations",
+    "gateway": "tourlab-study-gateway",
+    "catalog": "tourlab-study-catalog"
+  },
+  "images": {
+    "reservations": "111111111111.dkr.ecr.us-east-1.amazonaws.com/tourlab-study/reservations@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "payments": "111111111111.dkr.ecr.us-east-1.amazonaws.com/tourlab-study/payments@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "gateway": "111111111111.dkr.ecr.us-east-1.amazonaws.com/tourlab-study/gateway@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "notifications": "111111111111.dkr.ecr.us-east-1.amazonaws.com/tourlab-study/notifications@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "catalog": "111111111111.dkr.ecr.us-east-1.amazonaws.com/tourlab-study/catalog@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "prefix": "tourlab-study",
+  "task_sizes": {
+    "reservations": {
+      "memory": 1024,
+      "cpu": 512
+    },
+    "catalog": {
+      "memory": 1024,
+      "cpu": 512
+    },
+    "payments": {
+      "memory": 1024,
+      "cpu": 512
+    },
+    "gateway": {
+      "memory": 1024,
+      "cpu": 512
+    },
+    "notifications": {
+      "memory": 1024,
+      "cpu": 512
+    }
+  },
+  "secret_arns": {
+    "reservations": {
+      "LAB_SERVICE_PRIVATE_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_SERVICE_PRIVATE_PEM",
+      "ConnectionStrings__Runtime": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/ConnectionStrings__Runtime",
+      "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_JWT_PUBLIC_PEM",
+      "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_TLS_CERT_PEM",
+      "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_CA_PEM",
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_TLS_KEY_PEM"
+    },
+    "payments": {
+      "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/LAB_TLS_CERT_PEM",
+      "ConnectionStrings__Runtime": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/ConnectionStrings__Runtime",
+      "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/LAB_JWT_PUBLIC_PEM",
+      "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/LAB_CA_PEM",
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/LAB_TLS_KEY_PEM"
+    },
+    "gateway": {
+      "LAB_JWT_PRIVATE_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_JWT_PRIVATE_PEM",
+      "ConnectionStrings__Runtime": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/ConnectionStrings__Runtime",
+      "LAB_PROTECTION_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_PROTECTION_CERT_PEM",
+      "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_JWT_PUBLIC_PEM",
+      "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_TLS_CERT_PEM",
+      "LAB_PROTECTION_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_PROTECTION_KEY_PEM",
+      "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_CA_PEM",
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/gateway/LAB_TLS_KEY_PEM"
+    },
+    "notifications": {
+      "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/notifications/LAB_TLS_CERT_PEM",
+      "ConnectionStrings__Runtime": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/notifications/ConnectionStrings__Runtime",
+      "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/notifications/LAB_JWT_PUBLIC_PEM",
+      "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/notifications/LAB_CA_PEM",
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/notifications/LAB_TLS_KEY_PEM"
+    },
+    "catalog": {
+      "LAB_SERVICE_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/LAB_SERVICE_PUBLIC_PEM",
+      "ConnectionStrings__Runtime": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/ConnectionStrings__Runtime",
+      "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/LAB_JWT_PUBLIC_PEM",
+      "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/LAB_TLS_CERT_PEM",
+      "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/LAB_CA_PEM",
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/catalog/LAB_TLS_KEY_PEM"
+    }
+  },
+  "account_id": "111111111111"
+}
