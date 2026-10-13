@@ -11,6 +11,8 @@ LAB-006 adds bounded quote resilience, JSON/OpenTelemetry correlation, service-o
 LAB-007 hardens required JWT identities, ownership/session checks and UI lifetimes; corrects operations/projection interactivity; and supplies focused security/browser tests and a consolidated evidence matrix. Browser runtime verification remains outstanding.
 The specifications below and in `specs/` remain the source of truth.
 
+EXT-001 adds private tour images with Catalog PostgreSQL lifecycle metadata and S3-compatible local storage. EXT-002 adds a DynamoDB-backed **My bookings** read projection; authoritative reservation details/cancellation still use PostgreSQL. See [extension specifications](specs/08-tour-images-extension.md), [booking specification](specs/09-my-bookings-extension.md), [local run/demo](docs/extensions-execution.md), [study guide](docs/extension-study-guide.md) and [evidence](docs/evidence/EXT-001-002.md). No AWS resources were created; LAB-009 remains pending. The extension's default is the no-ALB profile; existing ALB teaching artifacts are explicit opt-in.
+
 LAB-008 adds reviewable Fargate Terraform, private PEM/SSM runtime support, an external one-shot migration path and guarded session scripts. **No AWS deployment or Neon connection was performed.** Start with [AWS handoff](docs/aws-execution.md), [cost worksheet](docs/costs.md), [Terraform checks](infra/terraform/README.md) and [actual LAB-008 evidence](docs/evidence/LAB-008.md). Deployment remains a separately authorized LAB-009 task; default desired counts are zero.
 
 ## Run locally on Windows

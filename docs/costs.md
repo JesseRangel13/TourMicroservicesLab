@@ -1,5 +1,29 @@
 # Study cost worksheet
 
+## EXT-001/002 default profile — checked 2026-10-11
+
+The extension default is `enable_alb_study_profile=false`: five0.5vCPU/1GiB tasks plus public IPv4 cost USD0.148426/hour, USD0.296852 for two hours and USD2.374816 for16active hours before supporting costs. The older six-task/ALB worksheet below is retained for the opt-in teaching profile; it does not describe the default. No resource or paid plan was activated.
+
+Additional us-east-1 reference inputs, without credits/free allowances:
+
+| Extension item | Rate / billing input |
+|---|---|
+| S3 Standard storage | USD0.023/GB-month first tier |
+| S3 PUT / GET+HEAD | USD0.005/1,000 PUT; USD0.0004/1,000 GET/HEAD; count retries/reconciliation |
+| DynamoDB Standard on-demand | USD0.625/million write units, USD0.125/million read units, USD0.25/GB-month storage |
+| GSI | Adds stored bytes and write units for projected updates; ALL duplicates the card data |
+| Encryption | SSE-S3 and default DynamoDB AWS-owned encryption; no new customer KMS key. Existing SSM managed-key usage remains separately billable. |
+| Extra queue/DLQ | Standard request charges; includes empty polling, ACK/visibility and replay, not just published messages |
+| Transfer | Add actual image Internet egress and interservice/provider transfer; browser downloads original bytes even when rendered160px wide |
+
+S3 regional rates were read from the [official current us-east-1 price list](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json), for TimedStorage-ByteHrs and Requests-Tier1/2. [S3 pricing](https://aws.amazon.com/s3/pricing/), [DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/), [DynamoDB encryption](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/EncryptionAtRest.html), [SQS pricing](https://aws.amazon.com/sqs/pricing/).
+
+Illustrative small month:0.02GB S3 storage (USD0.00046),200PUTs (USD0.001),2,000GET/HEADs (USD0.0008);1,000booking updates assumed2KB in both main item and GSI (4,000write units, USD0.0025),10,000read units (USD0.00125),0.02GB combined table/index storage (USD0.005). Subtotal **USD0.01101**, excluding extra SQS, conditional failures/retries/rebuilds, logs and transfer. Actual item sizes, consistency/read rounding and GSI writes determine units. This is an input example, not a spending cap or free-service promise.
+
+Keep sample images well below100KB and total stored images below25MiB during exercises; upload upper limits are safety bounds, not recommended fixture sizes. A two-hour session adds about USD0.30 of task/IP cost; retain the hosted-zone/ECR/log worksheet below for other fixed costs. Stop eliminates task activity after zero tasks is verified, but S3/DynamoDB stored data still bills. No automatic image expiry/live-table TTL is enabled because it would discard legitimate study data; deletion requires explicit reviewed operations. DynamoDB protection intentionally prevents casual whole-stack destruction. Budgets remain alerts, not enforcement.
+
+## Earlier opt-in ALB worksheet
+
 Checked official sources on 2026-10-10. Region us-east-1, Linux x86_64 on-demand, USD before tax, no credits/Free Tier assumed. Replace inputs after observing an actual AWS session; these are estimates, not measured bills.
 
 Inputs: six tasks (2 Gateway replicas + 4 business services), each 0.5 vCPU and 1 GiB; one public IPv4 per task; one internet-facing Application Load Balancer (ALB) for Gateway study. Rates: CPU 0.0404784/vCPU-hour, memory 0.004446/GB-hour, public IPv4 0.005/IP-hour, ALB 0.0225/hour + LCU (~0.008/LCU-hour). [Fargate pricing](https://aws.amazon.com/fargate/pricing/), [VPC pricing](https://aws.amazon.com/vpc/pricing/), [ALB pricing](https://aws.amazon.com/elasticloadbalancing/pricing/).

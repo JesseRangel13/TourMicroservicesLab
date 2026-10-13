@@ -25,6 +25,7 @@ try
     }
     else if (args.FirstOrDefault() == "refresh") LocalConfiguration.RefreshRuntimeConfiguration(root);
     else if (args.FirstOrDefault() == "queues") await QueueBootstrap.RunAsync(cancellation.Token);
+    else if (args.FirstOrDefault() == "extensions") await ExtensionBootstrap.RunAsync(cancellation.Token);
     else if (args.FirstOrDefault() == "bootstrap")
     {
         var settings = JsonSerializer.Deserialize<ProvisioningSettings>(await File.ReadAllTextAsync(
@@ -32,11 +33,15 @@ try
             ?? throw new InvalidOperationException("Private provisioning settings missing.");
         await DatabaseBootstrap.RunAsync(settings, Path.Combine(root, ".local", "certificates"), cancellation.Token);
     }
-    else throw new InvalidOperationException("Usage: Lab.Provisioner init|init-cloud|refresh|bootstrap|queues|validate-external <private-file>|bootstrap-external <private-file> --execute-external (run from repository root).");
+    else throw new InvalidOperationException("Usage: Lab.Provisioner init|init-cloud|refresh|bootstrap|queues|extensions|validate-external <private-file>|bootstrap-external <private-file> --execute-external (run from repository root).");
     return 0;
 }
 catch (Exception exception)
 {
+    var postgres = exception as Npgsql.PostgresException ?? exception.InnerException as Npgsql.PostgresException;
+    if (postgres is not null) Console.Error.WriteLine($"PostgreSQL failure SQLSTATE {postgres.SqlState}; no statement/parameters logged.");
+    if (exception is InvalidOperationException && exception.Message.Contains("PendingModelChangesWarning", StringComparison.Ordinal))
+        Console.Error.WriteLine("Migration models differ from snapshots; generate/rebuild migrations before bootstrap.");
     Console.Error.WriteLine($"Provisioning failed ({exception.GetType().Name}). Check local settings and dependencies.");
     return 1;
 }

@@ -1,20 +1,21 @@
-param([Parameter(Mandatory)][ValidateSet('Unit', 'Live', 'Controlled', 'Restart', 'RateLimit')][string]$Suite)
+param([Parameter(Mandatory)][ValidateSet('Unit', 'Live', 'Controlled', 'Restart', 'RateLimit', 'Extensions')][string]$Suite)
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $privateResults = Join-Path (Get-Location) 'TestResults/ci/private'
 New-Item -ItemType Directory -Force $privateResults | Out-Null
-$names = @('LAB_TEST_ROOT', 'LAB_MESSAGING_TEST', 'LAB_PAYMENT_TEST', 'LAB_RESTART_TEST', 'LAB_RATE_LIMIT_TEST', 'LAB_MESSAGING_ENABLED', 'LAB_WORK_ENABLED')
+$names = @('LAB_TEST_ROOT', 'LAB_MESSAGING_TEST', 'LAB_PAYMENT_TEST', 'LAB_RESTART_TEST', 'LAB_RATE_LIMIT_TEST', 'LAB_EXTENSIONS_TEST', 'LAB_MESSAGING_ENABLED', 'LAB_WORK_ENABLED')
 $previous = @{}
 foreach ($name in $names) {
     $previous[$name] = [Environment]::GetEnvironmentVariable($name)
     [Environment]::SetEnvironmentVariable($name, $null)
 }
-$paused = $Suite -in @('Controlled', 'Restart')
+$paused = $Suite -in @('Controlled', 'Restart', 'Extensions')
 $filters = @{
-    Unit = 'FullyQualifiedName~RuntimeOptionsTests|FullyQualifiedName~RuntimeSecretFilesTests|FullyQualifiedName~ExternalProvisioningTests|FullyQualifiedName~JwtValidationTests|FullyQualifiedName~CatalogContractTests|FullyQualifiedName~MessagingContractTests|FullyQualifiedName~QuoteResilienceTests|FullyQualifiedName~CircuitIsolationTests'
+    Unit = 'FullyQualifiedName~RuntimeOptionsTests|FullyQualifiedName~RuntimeSecretFilesTests|FullyQualifiedName~ExternalProvisioningTests|FullyQualifiedName~JwtValidationTests|FullyQualifiedName~CatalogContractTests|FullyQualifiedName~MessagingContractTests|FullyQualifiedName~QuoteResilienceTests|FullyQualifiedName~CircuitIsolationTests|FullyQualifiedName~ContentDecodingRejects|FullyQualifiedName~EncryptedCursorsReject'
     Restart = 'FullyQualifiedName~PersistenceTests'
     RateLimit = 'FullyQualifiedName~CredentialLimiterRejectsChangingUntrustedForwardedAddresses'
+    Extensions = 'FullyQualifiedName~ImageExtensionTests|FullyQualifiedName~BookingExtensionTests'
 }
 function Invoke-TestGroup([string]$Name, [string]$Filter) {
     $arguments = @('test', 'tests/Lab.Tests/Lab.Tests.csproj', '-c', 'Release', '--no-build', '--no-restore', '--results-directory', $privateResults,
@@ -43,7 +44,8 @@ try {
         $env:LAB_MESSAGING_ENABLED = 'false'; $env:LAB_WORK_ENABLED = 'false'
         if ($Suite -eq 'Controlled') { $env:LAB_MESSAGING_TEST = '1'; $env:LAB_PAYMENT_TEST = '1' }
         else { $env:LAB_RESTART_TEST = '1' }
-        if ($Suite -eq 'Restart') {
+        if ($Suite -eq 'Extensions') { $env:LAB_EXTENSIONS_TEST = '1' }
+        if ($Suite -in @('Restart','Extensions')) {
             docker compose up -d --wait --wait-timeout 180 catalog reservations payments notifications *> "$privateResults/worker-pause.log"
             if ($LASTEXITCODE -ne 0) { throw 'Controlled worker pause failed.' }
         }

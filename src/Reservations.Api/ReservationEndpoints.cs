@@ -26,7 +26,7 @@ public static class ReservationEndpoints
         services.AddSingleton(sp=>sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SagaRecoveryOptions>>().Value);
         services.AddScoped<SagaRecovery>();services.AddScoped<SagaCommands>();services.AddHostedService<SagaDeadlineWorker>();
         services.AddScoped<IInboxConsumer, ReservationConsumer>();
-        services.AddScoped<IOutboxStore>(_ => new PgOutboxStore(config.GetConnectionString("Runtime")!, "reservations"));
+        services.AddScoped<IOutboxStore>(_ => new PgOutboxStore(config.GetConnectionString("Runtime")!, "reservations", excludeDestination: "tourlab-booking-projection"));
         services.AddScoped<OutboxDispatcher>(); services.AddLabMessaging(config);
         return services;
     }

@@ -12,11 +12,16 @@ public sealed class PgOutboxStore : IOutboxStore
     private readonly string connectionString;
     private readonly string schema;
     private readonly Guid? selectedDelivery;
-    public PgOutboxStore(string connectionString, string schema, Guid? selectedDelivery = null)
+    private readonly string? onlyDestination;
+    private readonly string? excludeDestination;
+    public PgOutboxStore(string connectionString, string schema, Guid? selectedDelivery = null, string? onlyDestination = null, string? excludeDestination = null)
     {
         if (schema is not ("catalog" or "reservations" or "payments" or "notifications")) throw new ArgumentException("Invalid Outbox owner.", nameof(schema));
         this.connectionString = connectionString; this.schema = schema;
         this.selectedDelivery = selectedDelivery;
+        if (onlyDestination is not (null or "tourlab-booking-projection") || excludeDestination is not (null or "tourlab-booking-projection"))
+            throw new ArgumentException("Unsupported projection drain boundary.");
+        this.onlyDestination = onlyDestination; this.excludeDestination = excludeDestination;
     }
     public async Task<OutboxDelivery[]> ClaimAsync(int count, int leaseSeconds, CancellationToken ct)
     {
@@ -29,6 +34,7 @@ public sealed class PgOutboxStore : IOutboxStore
                 SELECT "DeliveryId" FROM {schema}."Outbox"
                 WHERE "PublishedAtUtc" IS NULL AND ("LeaseUntilUtc" IS NULL OR "LeaseUntilUtc"<=CURRENT_TIMESTAMP)
                     AND (@selected IS NULL OR "DeliveryId"=@selected)
+                    AND (@only IS NULL OR "Destination"=@only) AND (@excluded IS NULL OR "Destination"<>@excluded)
                 ORDER BY "OccurredAtUtc","DeliveryId" FOR UPDATE SKIP LOCKED LIMIT @count
             ) UPDATE {schema}."Outbox" o SET "LeaseOwner"=@owner,
                 "LeaseUntilUtc"=CURRENT_TIMESTAMP+make_interval(secs=>@seconds),"Attempts"="Attempts"+1
@@ -37,6 +43,8 @@ public sealed class PgOutboxStore : IOutboxStore
             """, connection);
         command.Parameters.AddWithValue("count", count); command.Parameters.AddWithValue("owner", owner); command.Parameters.AddWithValue("seconds", (double)leaseSeconds);
         command.Parameters.Add(new NpgsqlParameter("selected", NpgsqlTypes.NpgsqlDbType.Uuid) { Value = (object?)selectedDelivery ?? DBNull.Value });
+        command.Parameters.Add(new NpgsqlParameter("only", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)onlyDestination ?? DBNull.Value });
+        command.Parameters.Add(new NpgsqlParameter("excluded", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)excludeDestination ?? DBNull.Value });
         await using var reader = await command.ExecuteReaderAsync(ct); var rows = new List<OutboxDelivery>();
         while (await reader.ReadAsync(ct)) rows.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3), owner));
         return rows.ToArray();

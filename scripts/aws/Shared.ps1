@@ -11,7 +11,7 @@ function Read-Session([string]$Path) {
     foreach($name in $ServiceNames) {
         $required=@('LAB_CA_PEM','LAB_TLS_CERT_PEM','LAB_TLS_KEY_PEM','LAB_JWT_PUBLIC_PEM','ConnectionStrings__Runtime')
         if($name -eq 'gateway'){$required+=@('LAB_JWT_PRIVATE_PEM','LAB_PROTECTION_CERT_PEM','LAB_PROTECTION_KEY_PEM')}
-        if($name -eq 'catalog'){$required+='LAB_SERVICE_PUBLIC_PEM'};if($name -eq 'reservations'){$required+='LAB_SERVICE_PRIVATE_PEM'}
+        if($name -eq 'catalog'){$required+='LAB_SERVICE_PUBLIC_PEM'};if($name -eq 'reservations'){$required+=@('LAB_SERVICE_PRIVATE_PEM','BookingProjection__CursorKey')}
         if((($s.secret_arns[$name].Keys|Sort-Object) -join ',') -ne (($required|Sort-Object) -join ',')){throw 'Invalid per-service secret boundary.'}
         foreach($entry in $s.secret_arns[$name].GetEnumerator()){if($entry.Value -cne "arn:aws:ssm:$($s.region):$($s.account_id):parameter/$($s.prefix)/$name/$($entry.Key)"){throw 'Secret reference outside exact account/service/prefix scope.'}}
     }

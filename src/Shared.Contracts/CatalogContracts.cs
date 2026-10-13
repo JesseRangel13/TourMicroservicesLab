@@ -12,7 +12,7 @@ public sealed record UpdateCapacity(int Capacity, long ExpectedVersion);
 public sealed record CreateQuote(Guid RequestId, Guid SessionId, int Participants, string? UserId,
     long ExpectedUnitAmountMinor, string? ExpectedCurrency);
 public sealed record QuoteView(Guid QuoteId, long UnitAmountMinor, long TotalAmountMinor, string Currency,
-    DateTimeOffset ExpiresAtUtc, SessionView Session);
+    DateTimeOffset ExpiresAtUtc, SessionView Session, string TourName = "Tour name unavailable (legacy)");
 public sealed record HoldSeats(Guid HoldId, Guid QuoteId, Guid ReservationId, string UserId);
 public sealed record ConfirmSeats(Guid HoldId);
 public sealed record ReleaseSeats(Guid HoldId, string Reason);

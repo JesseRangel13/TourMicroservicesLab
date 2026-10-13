@@ -52,6 +52,15 @@ LAB-007 final actual local checks: **66 normal passed / 29 intentional skips**, 
 
 LAB-004 delivers a functioning vertical slice. LAB-005..007 complete resilience. Do not confuse a deployable prototype with verification of every pattern. IaC may be generated alongside local work, but agent delegation is neither required nor instructed.
 
+## Educational extensions (separate numbering)
+
+| ID | Scope | Specification | Verification |
+|---|---|---|---|
+| EXT-001 | Private S3 tour images, owned metadata/recovery, basic Blazor controls | specs/08-tour-images-extension.md | docs/evidence/EXT-001-002.md; local emulator tests, no AWS verification |
+| EXT-002 | Reservations-owned DynamoDB My bookings, versioned Outbox snapshots, dedicated queue/rebuild | specs/09-my-bookings-extension.md | docs/evidence/EXT-001-002.md; local projection tests, no AWS verification |
+
+LAB-001..009 numbering and historical reports remain unchanged. LAB-009 is not completed by these extensions. The latest request's no-ALB profile is restored as default; earlier ALB teaching artifacts remain opt-in via enable_alb_study_profile. ADR010 records the explicit baseline exceptions and retention changes.
+
 ## Dependency versions
 Pin an available .NET10 SDK in global.json and compatible packages/images after verifying official sources. Avoid floating latest versions. Use compatible EF10/Npgsql10, YARP, AWS SDK, OpenTelemetry, and xUnit versions. MediatR is optional; do not require a paid license/package. Prefer a simple explicit dispatcher. No TODO placeholders in a workflow declared implemented.
 

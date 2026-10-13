@@ -1,5 +1,7 @@
 # LAB-008 execution handoff
 
+EXT-001/002 add private S3, a DynamoDB GSI read model and a separate projection queue. Read [the added LAB-009 gates](extensions-execution.md#lab-009-gates-added-by-these-extensions) before using this older handoff. The default is now direct TLS/no ALB; retained ALB artifacts require explicit opt-in. DynamoDB protection intentionally blocks whole-stack destroy pending separate data-retention review; stop still preserves all data.
+
 This is a procedure for a separately authorized LAB-009 deployment. LAB-008 created no AWS resources, published no images/parameters and made no Neon connection. AC-30 is unverified. Local results: docs/evidence/LAB-008.md. Design: docs/decisions/008-cloud-study-profile.md. Costs: docs/costs.md.
 
 ## Deployment gates

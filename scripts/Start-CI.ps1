@@ -35,7 +35,7 @@ Invoke-Private 'Trust generated public lab CA' {
 }
 Invoke-Private 'Compose validation' { docker compose config --quiet }
 Invoke-Private 'PostgreSQL startup' { docker compose up -d --wait --wait-timeout 120 postgres }
-Invoke-Private 'ElasticMQ startup' { docker compose up -d elasticmq }
+Invoke-Private 'ElasticMQ and storage emulator startup' { docker compose up -d elasticmq s3 dynamodb }
 Invoke-Private 'Owned roles, migrations and seeds' {
     dotnet run --project tools/Lab.Provisioner -c Release --no-build --no-restore -- bootstrap
 }
@@ -47,6 +47,13 @@ for ($attempt = 0; $attempt -lt 12; $attempt++) {
     Start-Sleep -Seconds 2
 }
 if (!$queuesReady) { throw 'ElasticMQ queue initialization failed.' }
+$extensionsReady = $false
+for ($attempt = 0; $attempt -lt 12; $attempt++) {
+    dotnet run --project tools/Lab.Provisioner -c Release --no-build --no-restore -- extensions *> .local/ci-extensions.log
+    if ($LASTEXITCODE -eq 0) { $extensionsReady = $true; break }
+    Start-Sleep -Seconds 2
+}
+if (!$extensionsReady) { throw 'Disposable storage initialization failed.' }
 Invoke-Private 'Five Release images' { docker compose build gateway catalog reservations payments notifications }
 Invoke-Private 'Five HTTPS application hosts' {
     docker compose up -d --wait --wait-timeout 180 gateway catalog reservations payments notifications

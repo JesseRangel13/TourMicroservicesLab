@@ -52,7 +52,7 @@ public sealed class ReservationCreator(ReservationsDb db, ICatalogQuoteClient ca
         var now = clock.GetUtcNow();
         var reservation = new Reservation { Id = Guid.NewGuid(), UserId = userId, SessionId = command.SessionId,
             Participants = command.Participants, QuoteId = quote.QuoteId, UnitAmountMinor = quote.UnitAmountMinor,
-            TotalAmountMinor = quote.TotalAmountMinor, Currency = quote.Currency, StartsAtUtc = quote.Session.StartsAtUtc, CreatedAtUtc = now };
+            TotalAmountMinor = quote.TotalAmountMinor, Currency = quote.Currency, TourName = quote.TourName, StartsAtUtc = quote.Session.StartsAtUtc, CreatedAtUtc = now };
         var saga = new ReservationSaga { Id = Guid.NewGuid(), ReservationId = reservation.Id, HoldId = Guid.NewGuid(),
             PaymentOperationId = Guid.NewGuid(), RefundOperationId = Guid.NewGuid(), DeadlineUtc = now.AddSeconds(options?.AvailabilitySeconds??30) };
         var result = new IdempotencyRequest { UserId = userId, Key = key, RequestHash = hash, ResourceId = reservation.Id,

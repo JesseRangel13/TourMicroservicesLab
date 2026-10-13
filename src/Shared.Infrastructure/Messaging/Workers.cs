@@ -27,7 +27,7 @@ public sealed class MessagePump(IInboxConsumer consumer, IMessageTransport trans
         var renewal = RenewAsync(delivery, operation, renewalStop.Token);
         try
         {
-            await consumer.ConsumeAsync(envelope, operation.Token); // returns only after local commit
+            await consumer.ConsumeAsync(envelope, operation.Token); // returns after the durable local transaction or conditional projection write
             logger?.LogInformation("Message committed {event}",envelope.Type);
             LabTelemetry.Count("consumer", "committed");
             if (afterCommit is not null) await afterCommit(ct);

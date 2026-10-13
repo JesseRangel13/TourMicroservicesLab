@@ -38,20 +38,23 @@ resource "aws_route_table_association" "public_b" {
   route_table_id = aws_route_table.public.id
 }
 resource "aws_security_group" "alb" {
+  count       = var.enable_alb_study_profile ? 1 : 0
   name        = "${var.prefix}-alb"
   description = "Study ALB; ingress restricted to authorized client CIDR"
   vpc_id      = aws_vpc.lab.id
   tags        = { Name = "${var.prefix}-alb" }
 }
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
-  security_group_id = aws_security_group.alb.id
+  count             = var.enable_alb_study_profile ? 1 : 0
+  security_group_id = aws_security_group.alb[0].id
   cidr_ipv4         = var.client_cidr
   from_port         = 80
   to_port           = 80
   ip_protocol       = "tcp"
 }
 resource "aws_vpc_security_group_egress_rule" "alb_to_gateway" {
-  security_group_id            = aws_security_group.alb.id
+  count                        = var.enable_alb_study_profile ? 1 : 0
+  security_group_id            = aws_security_group.alb[0].id
   referenced_security_group_id = aws_security_group.service["gateway"].id
   from_port                    = 8443
   to_port                      = 8443
@@ -71,8 +74,9 @@ resource "aws_vpc_security_group_ingress_rule" "client" {
   ip_protocol       = "tcp"
 }
 resource "aws_vpc_security_group_ingress_rule" "alb_forward" {
+  count                        = var.enable_alb_study_profile ? 1 : 0
   security_group_id            = aws_security_group.service["gateway"].id
-  referenced_security_group_id = aws_security_group.alb.id
+  referenced_security_group_id = aws_security_group.alb[0].id
   from_port                    = 8443
   to_port                      = 8443
   ip_protocol                  = "tcp"

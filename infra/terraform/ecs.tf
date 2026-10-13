@@ -2,10 +2,10 @@ locals {
   shared_secret_names = ["LAB_CA_PEM", "LAB_TLS_CERT_PEM", "LAB_TLS_KEY_PEM", "LAB_JWT_PUBLIC_PEM", "ConnectionStrings__Runtime"]
   required_secrets = { for service in local.services : service => concat(local.shared_secret_names,
     service == "gateway" ? ["LAB_JWT_PRIVATE_PEM", "LAB_PROTECTION_CERT_PEM", "LAB_PROTECTION_KEY_PEM"] : [],
-  service == "catalog" ? ["LAB_SERVICE_PUBLIC_PEM"] : [], service == "reservations" ? ["LAB_SERVICE_PRIVATE_PEM"] : []) }
-  queue_urls = { for service in local.business : "tourlab-${service}" => aws_sqs_queue.input[service].url }
+  service == "catalog" ? ["LAB_SERVICE_PUBLIC_PEM"] : [], service == "reservations" ? ["LAB_SERVICE_PRIVATE_PEM", "BookingProjection__CursorKey"] : []) }
+  queue_urls = merge({ for service in local.business : "tourlab-${service}" => aws_sqs_queue.input[service].url }, { "tourlab-booking-projection" = aws_sqs_queue.booking_projection.url })
   runtime = { for service in local.services : service => merge({
-    AllowedHosts       = service == "gateway" ? "localhost;lab.tours.test;gateway;gateway.tourlab.internal;*.elb.amazonaws.com;*" : "localhost;lab.tours.test;${service};${service}.tourlab.internal",
+    AllowedHosts       = service == "gateway" && var.enable_alb_study_profile ? "localhost;lab.tours.test;gateway;gateway.tourlab.internal;*.elb.amazonaws.com;*" : "localhost;lab.tours.test;${service};${service}.tourlab.internal",
     LabFeaturesEnabled = true,
     ConnectionStrings  = { TrustSystemRootCertificates = true },
     Jwt                = merge({ PublicKeyPath = "/tmp/tourlab/jwt.pub" }, service == "gateway" ? { PrivateKeyPath = "/tmp/tourlab/jwt.key" } : {}),
@@ -17,7 +17,8 @@ locals {
         Routes   = { for name in local.business : name => { ClusterId = name, AuthorizationPolicy = "Api", Match = { Path = "/api/${name}/v1/{**rest}" }, Transforms = [{ PathRemovePrefix = "/api/${name}" }] } },
         Clusters = { for name in local.business : name => { Destinations = { primary = { Address = "https://${name}.tourlab.internal:8443/" } }, HttpClient = { MaxConnectionsPerServer = 10 }, HttpRequest = { ActivityTimeout = "00:00:40" } } }
       }
-    }) : "{}"), service == "catalog" ? { ServiceJwt = { PublicKeyPath = "/tmp/tourlab/service.pub" } } : {}, service == "reservations" ? {
+    }) : "{}"), service == "catalog" ? { ServiceJwt = { PublicKeyPath = "/tmp/tourlab/service.pub" }, ImageStorage = { Enabled = true, Local = false, Bucket = aws_s3_bucket.tour_images.id, Region = var.region } } : {}, service == "reservations" ? {
+    BookingProjection                               = { Enabled = true, Local = false, Table = aws_dynamodb_table.bookings.name, Region = var.region }
     CatalogClient                                   = { BaseAddress = "https://catalog.tourlab.internal:8443/", PrivateKeyPath = "/tmp/tourlab/service.key", TotalTimeoutSeconds = 10 }
     } : {}, jsondecode(contains(local.business, service) ? jsonencode({ Messaging = {
       Enabled            = true, Local = false, Region = var.region, InputQueue = "tourlab-${service}", QueueUrls = local.queue_urls,
@@ -81,15 +82,17 @@ resource "aws_ecs_task_definition" "service" {
   }
 }
 resource "aws_lb" "gateway" {
+  count              = var.enable_alb_study_profile ? 1 : 0
   name               = "${var.prefix}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [aws_security_group.alb[0].id]
   subnets            = [aws_subnet.public.id, aws_subnet.public_b.id]
   tags               = { Name = "${var.prefix}-alb" }
 }
 
 resource "aws_lb_target_group" "gateway" {
+  count       = var.enable_alb_study_profile ? 1 : 0
   name        = substr("${var.prefix}-gtw-tg", 0, 32)
   port        = 8443
   protocol    = "HTTPS"
@@ -114,13 +117,14 @@ resource "aws_lb_target_group" "gateway" {
 }
 
 resource "aws_lb_listener" "gateway" {
-  load_balancer_arn = aws_lb.gateway.arn
+  count             = var.enable_alb_study_profile ? 1 : 0
+  load_balancer_arn = aws_lb.gateway[0].arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.gateway.arn
+    target_group_arn = aws_lb_target_group.gateway[0].arn
   }
 }
 
@@ -149,9 +153,9 @@ resource "aws_ecs_service" "service" {
     registry_arn = aws_service_discovery_service.service[each.key].arn
   }
   dynamic "load_balancer" {
-    for_each = each.key == "gateway" ? [1] : []
+    for_each = each.key == "gateway" && var.enable_alb_study_profile ? [1] : []
     content {
-      target_group_arn = aws_lb_target_group.gateway.arn
+      target_group_arn = aws_lb_target_group.gateway[0].arn
       container_name   = "gateway"
       container_port   = 8443
     }

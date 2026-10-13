@@ -1,0 +1,48 @@
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Business.BusinessClient Business
+@using Shared.Contracts
+@using Microsoft.AspNetCore.Components.Forms
+
+@if (Error is not null) { <p role="alert">Images unavailable: @Error</p> }
+@if (images.Length == 0 || images.All(x => x.Status != "Ready")) { <p>Image unavailable.</p> }
+@foreach (var image in images.Where(x => x.Status == "Ready")) {
+    @if (!failed.Contains(image.Id)) {
+        <img src="@image.Url" alt="Tour image" width="160" referrerpolicy="no-referrer" @onerror="() => failed.Add(image.Id)" />
+    } else { <p>Image unavailable. Refresh images to renew access.</p> }
+}
+@if (Manage) {
+    <AuthorizeView Roles="Admin">
+        <p>JPEG/PNG only, maximum 2 MiB and 2048×2048 pixels. Three images per tour.</p>
+        <p role="status">@(connected ? "Image controls connected." : "Connecting image controls…")</p>
+        <InputFile OnChange="Choose" accept="image/jpeg,image/png" disabled="@(Busy || !connected)" />
+        <button disabled="@(Busy || !connected || selected is null)" @onclick="Upload">Upload / retry same image</button>
+        @foreach (var image in images) {
+            <p>@image.Id — @image.Status <button disabled="@(Busy || image.Status == "Deleted")" @onclick="() => Remove(image.Id)">Remove</button></p>
+        }
+    </AuthorizeView>
+}
+<button disabled="@Busy" @onclick="Load">Refresh images</button>
+
+@code {
+    [Parameter] public Guid TourId { get; set; }
+    [Parameter] public bool Manage { get; set; }
+    private TourImageView[] images = [];
+    private readonly HashSet<Guid> failed = [];
+    private IBrowserFile? selected;
+    private Guid intention;
+    private bool connected;
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { connected = true; StateHasChanged(); } }
+    protected override Task OnParametersSetAsync() => Load();
+    private Task Load() => RunAsync(async ct => { images = await Business.ImagesAsync(TourId, Manage, ct); failed.Clear(); });
+    private void Choose(InputFileChangeEventArgs e) { selected = e.File; intention = Guid.NewGuid(); }
+    private Task Upload() => RunAsync(async ct => {
+        if (selected is null) return;
+        if (selected.Size > 2 * 1024 * 1024) throw new Gateway.Web.Catalog.CatalogClientException("Image exceeds the 2 MiB limit.");
+        try {
+            await using var stream = selected.OpenReadStream(2 * 1024 * 1024, ct);
+            await Business.UploadImageAsync(TourId, intention, stream, ct);
+        } catch (IOException) { throw new Gateway.Web.Catalog.CatalogClientException("File upload interrupted. Retry the same image or select a new file."); }
+        images = await Business.ImagesAsync(TourId, true, ct);
+    });
+    private Task Remove(Guid id) => RunAsync(async ct => { await Business.DeleteImageAsync(TourId, id, ct); images = await Business.ImagesAsync(TourId, true, ct); });
+}

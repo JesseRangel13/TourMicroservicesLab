@@ -10,7 +10,7 @@ terraform -chdir=infra/terraform test '-var-file=example.tfvars.json'
 pwsh -File scripts/aws/Test-Guards.ps1
 ```
 
-The test's `command=apply` uses a mock provider exclusively: it does not provision AWS. Example account, email, CIDR and image digests are fictional and unsuitable for deployment. Negative tests reject public ingress and unmeasured small task sizes.
+The tests use mocked `command=plan` with generated plan-time attributes: no AWS API, resources or protected-data teardown. Example account, email, CIDR and image digests are fictional and unsuitable for deployment. Negative tests reject public ingress and unmeasured small task sizes. EXT-001/002 add a private SSE-S3 bucket, DynamoDB table/GSI and separate queue/DLQ; no extra application task. Bucket force_destroy=false and DynamoDB deletion protection/prevent_destroy require a separate retention/deletion decision before whole-stack destruction. The retained ALB profile is opt-in and defaults off.
 
 Default task size is0.5vCPU/1GiB. Reviewed overrides allow0.5vCPU/2GiB or1vCPU/2GiB, matching the [official Fargate CPU/memory combinations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html). Larger settings require a new cost/sizing review; local cold-start timing limitations are in docs/evidence/DEFECT-LAB008-01.md.
 

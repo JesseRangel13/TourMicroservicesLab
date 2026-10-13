@@ -45,7 +45,8 @@
       "LAB_JWT_PUBLIC_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_JWT_PUBLIC_PEM",
       "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_TLS_CERT_PEM",
       "LAB_CA_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_CA_PEM",
-      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_TLS_KEY_PEM"
+      "LAB_TLS_KEY_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/LAB_TLS_KEY_PEM",
+      "BookingProjection__CursorKey": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/reservations/BookingProjection__CursorKey"
     },
     "payments": {
       "LAB_TLS_CERT_PEM": "arn:aws:ssm:us-east-1:111111111111:parameter/tourlab-study/payments/LAB_TLS_CERT_PEM",

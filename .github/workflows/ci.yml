@@ -17,7 +17,7 @@ jobs:
   verify:
     name: Build, tests and five images
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -57,6 +57,11 @@ jobs:
         if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
         timeout-minutes: 8
         run: ./scripts/Verify-CI.ps1 -Suite Controlled
+      - name: S3 and DynamoDB extension integration tests
+        # Extensions use disposable emulators and the existing controlled-worker isolation.
+        if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
+        timeout-minutes: 6
+        run: ./scripts/Verify-CI.ps1 -Suite Extensions
       - name: Stop and start persistence test
         if: ${{ !cancelled() && steps.lab.outcome == 'success' }}
         timeout-minutes: 4

@@ -1,11 +1,13 @@
 using Shared.Infrastructure.Operations;
 using Shared.Infrastructure;
 using Reservations.Api;
+using Reservations.Api.Bookings;
 if (args.Contains("--health")) return await LabHosting.CheckLivenessAsync();
 var builder = WebApplication.CreateBuilder(args);
 builder.AddPrivateConfiguration();
 builder.Services.AddLabJwt(builder.Configuration);
 builder.Services.AddReservations(builder.Configuration);
+builder.Services.AddBookingProjection(builder.Configuration);
 builder.Services.AddServiceOperations(builder.Configuration, "reservations");
 var app = builder.Build();
 app.UseLabPipeline();
@@ -13,6 +15,7 @@ app.UseRateLimiter();
 app.MapLabHealth();
 app.MapScaffoldStatus(app.Environment.ApplicationName);
 app.MapReservations();
+app.MapBookings();
 app.MapServiceOperations("reservations");
 app.Run();
 

@@ -6,6 +6,11 @@ variable "region" {
     error_message = "This priced study profile targets us-east-1."
   }
 }
+variable "enable_alb_study_profile" {
+  type        = bool
+  default     = false
+  description = "Retained earlier teaching profile; explicit opt-in cost/TLS/circuit review required. Extensions default to direct TLS without ALB."
+}
 variable "account_id" {
   type = string
   validation {

@@ -24,6 +24,7 @@ public sealed class TourSession
 }
 public sealed class Quote
 {
+    public string TourName { get; set; } = "Tour name unavailable (legacy)";
     public Guid Id { get; set; }
     public Guid RequestId { get; set; }
     public Guid SessionId { get; set; }
@@ -74,6 +75,7 @@ public sealed class CatalogInbox
 }
 public sealed class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(options)
 {
+    public DbSet<TourImage> Images => Set<TourImage>();
     public DbSet<Tour> Tours => Set<Tour>();
     public DbSet<TourSession> Sessions => Set<TourSession>();
     public DbSet<Quote> Quotes => Set<Quote>();
@@ -84,6 +86,14 @@ public sealed class CatalogDb(DbContextOptions<CatalogDb> options) : DbContext(o
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasDefaultSchema("catalog");
+        model.Entity<TourImage>(b => {
+            b.ToTable("TourImages"); b.HasKey(x => x.Id); b.HasIndex(x => x.ObjectKey).IsUnique();
+            b.HasIndex(x => new { x.Status, x.LeaseUntilUtc }); b.HasIndex(x => x.TourId);
+            b.Property(x => x.Version).IsConcurrencyToken(); b.Property(x => x.ObjectKey).HasMaxLength(100);
+            b.Property(x => x.Sha256).HasMaxLength(64); b.Property(x => x.ContentType).HasMaxLength(30);
+            b.Property(x => x.Status).HasMaxLength(20); b.HasOne<Tour>().WithMany().HasForeignKey(x => x.TourId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<Quote>().Property(x => x.TourName).HasMaxLength(200);
         model.Entity<CatalogFault>(b=>{b.ToTable("Faults");b.HasKey(x=>x.Id);b.HasData(new CatalogFault{Id=1});});
         model.Entity<CatalogFaultAudit>(b=>{b.ToTable("FaultAudit");b.HasKey(x=>x.Id);});
         model.Entity<CatalogInbox>(b => { b.ToTable("Inbox"); b.HasKey(x => new { x.ConsumerName, x.MessageId });

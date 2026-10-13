@@ -4,6 +4,7 @@ namespace Reservations.Api.Persistence;
 
 public sealed class Reservation
 {
+    public string TourName { get; set; } = "Tour name unavailable (legacy)";
     public Guid Id { get; set; }
     public string UserId { get; set; } = "";
     public Guid SessionId { get; set; }
@@ -93,6 +94,20 @@ public sealed class TourProjection
 }
 public sealed class ReservationsDb(DbContextOptions<ReservationsDb> options) : DbContext(options)
 {
+    public override Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries<Reservation>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray()) {
+            if (entry.State == EntityState.Modified && entry.Entity.Version == entry.OriginalValues.GetValue<long>(nameof(Reservation.Version)))
+                entry.Entity.Version = checked(entry.Entity.Version + 1);
+            var snapshot = Bookings.BookingSnapshots.From(entry.Entity);
+            var message = Guid.NewGuid(); var delivery = Guid.NewGuid();
+            Outbox.Add(new ReservationOutbox { DeliveryId = delivery, MessageId = message, EffectKey = $"booking/{snapshot.ReservationId}/v/{snapshot.Version}",
+                Destination = "tourlab-booking-projection", Type = nameof(Shared.Contracts.BookingSnapshotChanged), OccurredAtUtc = snapshot.UpdatedAtUtc,
+                EnvelopeJson = Shared.Infrastructure.Messaging.MessageRoutes.Serialize(snapshot, message, delivery, snapshot.UpdatedAtUtc, null, snapshot.ReservationId, snapshot.ReservationId) });
+        }
+        return base.SaveChangesAsync(ct);
+    }
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<ReservationSaga> Sagas => Set<ReservationSaga>();
     public DbSet<IdempotencyRequest> Idempotency => Set<IdempotencyRequest>();
@@ -107,6 +122,7 @@ public sealed class ReservationsDb(DbContextOptions<ReservationsDb> options) : D
         {
             b.ToTable("Reservations", t => t.HasCheckConstraint("CK_Reservation", "\"Participants\" BETWEEN 1 AND 6 AND \"UnitAmountMinor\" > 0 AND \"TotalAmountMinor\"::numeric = \"UnitAmountMinor\"::numeric * \"Participants\" AND \"Currency\"='MXN' AND \"Version\">0"));
             b.HasKey(x => x.Id); b.Property(x => x.UserId).HasMaxLength(128); b.Property(x => x.Currency).HasMaxLength(3);
+            b.Property(x => x.TourName).HasMaxLength(200);
             b.Property(x => x.Status).HasMaxLength(40); b.Property(x => x.Reason).HasMaxLength(100); b.Property(x => x.Version).IsConcurrencyToken();
             b.HasIndex(x => new { x.UserId, x.CreatedAtUtc }); b.HasIndex(x => x.Status);
         });

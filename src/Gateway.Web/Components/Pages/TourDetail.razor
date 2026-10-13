@@ -9,6 +9,7 @@
 @if (tour is not null)
 {
     <h1>@tour.Name</h1><p>@tour.Description</p><p>@(tour.Active ? "Active" : "Inactive")</p>
+    <Gateway.Web.Components.Catalog.TourImages TourId="Id" />
     <AuthorizeView Roles="Admin"><a href="@($"/admin/catalog/{Id}")">Edit tour and sessions</a></AuthorizeView>
     <table><thead><tr><th>Departure (UTC)</th><th>Unit price (MXN)</th><th>Available / capacity</th></tr></thead>
     <tbody>@foreach (var session in sessions) { <tr><td>@session.StartsAtUtc.ToString("u")</td><td>@((session.UnitAmountMinor / 100m).ToString("0.00"))</td><td>@session.AvailableSeats / @session.Capacity</td></tr> }</tbody></table>

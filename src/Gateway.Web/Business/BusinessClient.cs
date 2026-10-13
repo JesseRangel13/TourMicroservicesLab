@@ -10,6 +10,11 @@ using Shared.Contracts;
 namespace Gateway.Web.Business;
 public sealed class BusinessClient(IHttpClientFactory factory,AuthenticationStateProvider authentication,JwtIssuer issuer,IOptions<GatewayApiOptions> options)
 {
+    public Task<TourImageView[]> ImagesAsync(Guid tour, bool admin, CancellationToken ct) => SendAsync<TourImageView[]>(HttpMethod.Get, $"catalog/v1/{(admin ? "admin/" : "")}tours/{tour}/images", null, ct);
+    public Task<TourImageView> UploadImageAsync(Guid tour, Guid id, Stream image, CancellationToken ct) => SendAsync<TourImageView>(HttpMethod.Put, $"catalog/v1/admin/tours/{tour}/images/{id}", new StreamContent(image), ct);
+    public Task<bool> DeleteImageAsync(Guid tour, Guid id, CancellationToken ct) => SendAsync<bool>(HttpMethod.Delete, $"catalog/v1/admin/tours/{tour}/images/{id}", null, ct);
+    public Task<BookingPage> BookingsAsync(string? cursor, CancellationToken ct) => SendAsync<BookingPage>(HttpMethod.Get, "reservations/v1/my-bookings?pageSize=10" + (cursor is null ? "" : "&cursor=" + Uri.EscapeDataString(cursor)), null, ct);
+    public Task<RebuildBookingsResult> RebuildBookingsAsync(Guid? after, CancellationToken ct) => SendAsync<RebuildBookingsResult>(HttpMethod.Post, "reservations/v1/admin/my-bookings/rebuild", new RebuildBookings(after), ct);
     private static string ServicePath(LabService service)=>service switch { LabService.Catalog=>"catalog",LabService.Reservations=>"reservations",LabService.Payments=>"payments",LabService.Notifications=>"notifications",_=>throw new ArgumentOutOfRangeException(nameof(service)) };
     public Task<ServiceDiagnostics> DiagnosticsAsync(LabService service,int page,CancellationToken ct)=>SendAsync<ServiceDiagnostics>(HttpMethod.Get,$"{ServicePath(service)}/v1/admin/diagnostics?page={page}",null,ct);
     public Task<DeadLetterView[]> DeadLettersAsync(LabService service,CancellationToken ct)=>SendAsync<DeadLetterView[]>(HttpMethod.Get,$"{ServicePath(service)}/v1/admin/dead-letters?pageSize=10",null,ct);
@@ -39,7 +44,8 @@ public sealed class BusinessClient(IHttpClientFactory factory,AuthenticationStat
             || DateTimeOffset.UtcNow.ToUnixTimeSeconds()>=expires)throw new CatalogClientException("Your session has expired. Sign in again.");
         using var client=factory.CreateClient("GatewayApi");using var request=new HttpRequestMessage(method,new Uri(new Uri(options.Value.BaseAddress),"api/"+path));
         request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",issuer.Issue(id,user.Identity.Name??"",user.FindAll(ClaimTypes.Role).Select(c=>c.Value)));
-        if(body is not null)request.Content=JsonContent.Create(body,body.GetType());
+        if(body is HttpContent content)request.Content=content;
+        else if(body is not null)request.Content=JsonContent.Create(body,body.GetType());
         using var response=await client.SendAsync(request,ct);
         if(!response.IsSuccessStatusCode)
         {
@@ -48,6 +54,7 @@ public sealed class BusinessClient(IHttpClientFactory factory,AuthenticationStat
             {var problem=await response.Content.ReadFromJsonAsync<JsonElement>(ct);if(problem.TryGetProperty("code",out var value))code=value.GetString()??code;}
             throw new CatalogClientException($"{code} (HTTP {(int)response.StatusCode}).");
         }
+        if (response.StatusCode == System.Net.HttpStatusCode.Accepted && typeof(T) == typeof(bool)) return (T)(object)true;
         return await response.Content.ReadFromJsonAsync<T>(ct)??throw new CatalogClientException("Empty response.");
     }
 }

@@ -26,6 +26,7 @@ foreach($resource in $resources) {
             'aws_route_table_association' {if($v.route_table_id -notin $ownedIds -or $v.subnet_id -notin $ownedIds){throw 'Unrelated association.'}}
             'aws_iam_role_policy' {if(!$v.role.StartsWith($s.prefix+'-')){throw 'Unrelated IAM role.'}}
             'aws_ecr_lifecycle_policy' {if(!$v.repository.StartsWith($s.prefix+'/')){throw 'Unrelated repository.'}}
+            {$_ -in @('aws_s3_bucket_public_access_block','aws_s3_bucket_ownership_controls','aws_s3_bucket_server_side_encryption_configuration','aws_s3_bucket_policy')} {if($v.bucket -cne "$($s.prefix)-$($s.account_id)-images"){throw 'Unrelated image bucket control.'}}
             'aws_sqs_queue_redrive_allow_policy' {if(!$v.queue_url.StartsWith("https://sqs.$($s.region).amazonaws.com/$($s.account_id)/$($s.prefix)-")){throw 'Unrelated queue.'}}
             'aws_lb_listener' {if(!$v.load_balancer_arn.Contains($s.prefix)){throw 'Unrelated ALB listener.'}}
             'aws_vpc_security_group_ingress_rule' {if($v.security_group_id -notin $ownedIds){throw 'Unrelated ingress rule.'}}

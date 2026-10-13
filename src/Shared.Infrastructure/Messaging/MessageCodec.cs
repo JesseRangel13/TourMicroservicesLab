@@ -16,7 +16,7 @@ public static class MessageCodec
             if (envelope.MessageId == Guid.Empty || envelope.DeliveryId == Guid.Empty || envelope.CorrelationId == Guid.Empty
                 || envelope.CausationId == Guid.Empty || envelope.Version != 1 || string.IsNullOrWhiteSpace(envelope.Type)
                 || envelope.OccurredAtUtc == default || envelope.OccurredAtUtc.Offset != TimeSpan.Zero
-                || envelope.Payload.ValueKind != JsonValueKind.Object || (envelope.Type != "TourSessionChanged" && (envelope.SagaId is null || envelope.SagaId == Guid.Empty)))
+                || envelope.Payload.ValueKind != JsonValueKind.Object || (envelope.Type is not ("TourSessionChanged" or "BookingSnapshotChanged") && (envelope.SagaId is null || envelope.SagaId == Guid.Empty)))
                 throw new PoisonMessageException("InvalidEnvelope");
             if (envelope.Traceparent is not null && !ActivityContext.TryParse(envelope.Traceparent, null, out _)) throw new PoisonMessageException("InvalidTraceparent");
             return envelope;
@@ -52,6 +52,7 @@ public static class MessageRoutes
         "ProcessPayment" or "ReconcilePayment" or "RefundPayment" => ["tourlab-payments"],
         "PaymentSucceeded" or "PaymentDeclined" or "PaymentOutcomeUnknown" or "PaymentRefunded" or "RefundNeedsReview" => ["tourlab-reservations"],
         "ReservationConfirmed" or "ReservationFailed" or "ReservationCancelled" => ["tourlab-notifications"],
+        "BookingSnapshotChanged" => ["tourlab-booking-projection"],
         _ => throw new PoisonMessageException("UnknownRoute")
     };
     public static string Serialize<T>(T payload, Guid messageId, Guid deliveryId, DateTimeOffset now, Guid? sagaId, Guid correlationId, Guid causationId) =>

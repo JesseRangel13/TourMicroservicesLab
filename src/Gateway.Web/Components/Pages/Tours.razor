@@ -12,7 +12,7 @@
 @if (result is not null)
 {
     <p>@result.Total tours; page @(page)</p>
-    <ul>@foreach (var tour in result.Items) { <li><a href="@($"/tours/{tour.Id}")">@tour.Name</a> — @(tour.Active ? "Active" : "Inactive")</li> }</ul>
+    <ul>@foreach (var tour in result.Items) { <li><a href="@($"/tours/{tour.Id}")">@tour.Name</a> — @(tour.Active ? "Active" : "Inactive") <Gateway.Web.Components.Catalog.TourImages TourId="tour.Id" /></li> }</ul>
     <button disabled="@(Busy || page <= 1)" @onclick="Previous">Previous</button>
     <button disabled="@(Busy || (long)page * 10 >= result.Total)" @onclick="Next">Next</button>
 }

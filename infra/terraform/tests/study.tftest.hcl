@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  override_during = plan
+  mock_resource "aws_s3_bucket" {
+    defaults = { id = "tourlab-study-111111111111-images", arn = "arn:aws:s3:::tourlab-study-111111111111-images" }
+  }
+  mock_resource "aws_dynamodb_table" {
+    defaults = { id = "tourlab-study-bookings", arn = "arn:aws:dynamodb:us-east-1:111111111111:table/tourlab-study-bookings" }
+  }
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::111111111111:role/tourlab-mock" }
   }
@@ -32,8 +39,8 @@ mock_provider "aws" {
 }
 
 run "offline_study_plan" {
-  # Mock application only: no credentials, SDK calls or AWS resources.
-  command = apply
+  # Mock plan only: no credentials, SDK calls, resources or teardown of protected data.
+  command = plan
   assert {
     condition     = length(aws_ecs_service.service) == 5 && alltrue([for s in aws_ecs_service.service : s.desired_count == 0])
     error_message = "Exactly five services must start paused."
@@ -63,6 +70,13 @@ run "offline_study_plan" {
   assert {
     condition     = alltrue([for queue in aws_sqs_queue.input : !queue.fifo_queue]) && alltrue([for queue in aws_sqs_queue.dlq : !queue.fifo_queue])
     error_message = "The transport explicitly uses Standard queues and tolerates duplication/reordering."
+  }
+  assert {
+    condition = (length(aws_lb.gateway) == 0 && aws_s3_bucket_public_access_block.tour_images.block_public_acls &&
+      aws_s3_bucket_public_access_block.tour_images.block_public_policy && !aws_s3_bucket.tour_images.force_destroy &&
+      aws_dynamodb_table.bookings.deletion_protection_enabled && aws_dynamodb_table.bookings.billing_mode == "PAY_PER_REQUEST" &&
+    aws_sqs_queue.booking_projection.visibility_timeout_seconds == 60 && aws_sqs_queue.booking_projection.message_retention_seconds == 1209600)
+    error_message = "Extensions must remain private, retained, separately queued and on the no-ALB base profile."
   }
 }
 run "reject_public_ingress" {

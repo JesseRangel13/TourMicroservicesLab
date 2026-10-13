@@ -37,7 +37,7 @@ if($Action -eq 'Stop') {
 & "$PSScriptRoot/Invoke-Session.ps1" -Action Preflight -SessionFile $SessionFile -ReadOnlyAws
 try {
     foreach($name in $ServiceNames){
-        $count = if($name -eq 'gateway'){2}else{1}
+        $count = if($name -eq 'gateway' -and $session.alb_endpoint){2}else{1}
         [void](Invoke-Aws $session @('ecs','update-service','--cluster',$session.cluster,'--service',$session.services[$name],'--desired-count',"$count"))
     }
     [void](Invoke-Aws $session (@('ecs','wait','services-stable','--cluster',$session.cluster,'--services')+@($session.services.Values)))

@@ -11,6 +11,8 @@
 @if (tour is not null)
 {
     <p>Tour version @tour.Version</p>
+    <h2>Tour images</h2>
+    <Gateway.Web.Components.Catalog.TourImages TourId="Id" Manage="true" />
     <label>Name <input @bind="name" maxlength="200" /></label>
     <label>Description <textarea @bind="description" maxlength="4000"></textarea></label>
     <label>Active <input type="checkbox" @bind="active" /></label>

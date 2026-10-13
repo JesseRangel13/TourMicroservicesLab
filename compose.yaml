@@ -1,5 +1,30 @@
 name: tourlab-local
 services:
+  s3:
+    image: ghcr.io/gaul/s3proxy/container:sha-1e5d081@sha256:f8b17bc2b336a19770048198c91be4d927607fc7843eecdfb40eab353109fcef
+    platform: linux/amd64
+    environment:
+      S3PROXY_ENDPOINT: http://0.0.0.0:9000
+      S3PROXY_IDENTITY: local-simulation
+      S3PROXY_CREDENTIAL: local-simulation
+      S3PROXY_CORS_ALLOW_ALL: 'false'
+      JCLOUDS_PROVIDER: filesystem
+      JCLOUDS_FILESYSTEM_BASEDIR: /data
+    ports: ["127.0.0.1:9000:9000"]
+    volumes: ["s3-data:/data"]
+  dynamodb:
+    image: amazon/dynamodb-local:3.3.0@sha256:d89f8fcc6b1a39cb35976c248ed42a28c66ae00dc043099210f5571e42648ab4
+    platform: linux/amd64
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    ports: ["127.0.0.1:8031:8000"]
+    volumes: ["dynamodb-data:/home/dynamodblocal/data"]
+    depends_on: { dynamodb-init: { condition: service_completed_successfully } }
+  dynamodb-init:
+    image: amazon/dynamodb-local:3.3.0@sha256:d89f8fcc6b1a39cb35976c248ed42a28c66ae00dc043099210f5571e42648ab4
+    platform: linux/amd64
+    user: '0'
+    entrypoint: ["/bin/sh", "-c", "chown 1000:1000 /data"]
+    volumes: ["dynamodb-data:/data"]
   postgres:
     image: postgres:17.6-bookworm@sha256:45cd22f8d32e189d245403954882f88e7a8714301fda80dab6da90f1265b25a3
     platform: linux/amd64
@@ -88,5 +113,7 @@ services:
       - ./.local/certificates/ca.crt:/run/lab/ca.crt:ro
     depends_on: { postgres: { condition: service_healthy } }
 volumes:
+  s3-data:
+  dynamodb-data:
   postgres-data:
   elasticmq-data:

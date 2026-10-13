@@ -55,8 +55,8 @@ public static class LocalConfiguration
         {
             var service = schema == "identity" ? "gateway" : schema;
             var port = schema == "identity" ? 8443 : 8444 + Array.IndexOf(Schemas, schema);
-            WriteJson(Path.Combine(directory, $"{service}.host.json"), RuntimeConfig(service, schema, "localhost", passwords[schema], certDir, port, false));
-            WriteJson(Path.Combine(directory, $"{service}.container.json"), RuntimeConfig(service, schema, "postgres", passwords[schema], "/run/lab", 8443, true));
+            WriteJson(Path.Combine(directory, $"{service}.host.json"), RuntimeConfig(service, schema, "localhost", passwords[schema], certDir, port, false, EnsureCursorKey(directory)));
+            WriteJson(Path.Combine(directory, $"{service}.container.json"), RuntimeConfig(service, schema, "postgres", passwords[schema], "/run/lab", 8443, true, EnsureCursorKey(directory)));
         }
         Console.WriteLine("Private configuration generated under .local. Passwords were not printed. Protect its ACL before use.");
     }
@@ -66,7 +66,7 @@ public static class LocalConfiguration
         Password = password, MaxPoolSize = 5, Timeout = 5, CommandTimeout = 5,
         SslMode = SslMode.VerifyFull, RootCertificate = CertificatePath(certificates, "ca.crt")
     }.ConnectionString;
-    private static object RuntimeConfig(string service, string schema, string dbHost, string password, string certificates, int port, bool container)
+    private static object RuntimeConfig(string service, string schema, string dbHost, string password, string certificates, int port, bool container, string cursorKey = "")
     {
         var config = new Dictionary<string, object>
         {
@@ -82,10 +82,14 @@ public static class LocalConfiguration
             var endpoint = container ? "http://elasticmq:9324" : "http://localhost:9324";
             config["Messaging"] = new { Enabled = true, Local = true, Endpoint = endpoint, Region = "us-east-1",
                 InputQueue = "tourlab-" + service, DeadLetterQueueUrl = $"{endpoint}/000000000000/tourlab-{service}-dlq", LeaseSeconds = 60, VisibilitySeconds = 60, WaitSeconds = 20,
-                QueueUrls = new[] { "catalog", "reservations", "payments", "notifications" }.ToDictionary(s => "tourlab-" + s, s => $"{endpoint}/000000000000/tourlab-{s}") };
+                  QueueUrls = new[] { "catalog", "reservations", "payments", "notifications", "booking-projection" }.ToDictionary(s => "tourlab-" + s, s => $"{endpoint}/000000000000/tourlab-{s}") };
         }
         if (service == "reservations") config["CatalogClient"] = new { BaseAddress = container ? "https://catalog:8443/" : "https://localhost:8444/",
             PrivateKeyPath = CertificatePath(certificates, "reservations-signing.key"), TotalTimeoutSeconds = 10 };
+        if (service == "catalog") config["ImageStorage"] = new { Enabled = true, Local = true, Bucket = "tourlab-images",
+            Endpoint = container ? "http://s3:9000" : "http://localhost:9000", BrowserEndpoint = "http://localhost:9000", Region = "us-east-1" };
+        if (service == "reservations") config["BookingProjection"] = new { Enabled = true, Local = true, Table = "tourlab-bookings",
+            Endpoint = container ? "http://dynamodb:8000" : "http://localhost:8031", Region = "us-east-1", CursorKey = cursorKey };
         if (service == "gateway")
         {
             ((Dictionary<string, string>)config["Jwt"])["PrivateKeyPath"] = CertificatePath(certificates, "jwt.key");
@@ -102,7 +106,7 @@ public static class LocalConfiguration
             }
             config["ReverseProxy"] = new { Routes = routes, Clusters = clusters };
         }
-        return config;
+          return config;
     }
     private static string NewPassword() => "Aa1!" + Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
     private static string CertificatePath(string directory, string file) => directory.StartsWith('/') ? $"{directory}/{file}" : Path.Combine(directory, file);
@@ -116,10 +120,16 @@ public static class LocalConfiguration
         {
             var service = schema == "identity" ? "gateway" : schema;
             var port = schema == "identity" ? 8443 : 8444 + Array.IndexOf(Schemas, schema);
-            WriteJson(Path.Combine(directory, $"{service}.host.json"), RuntimeConfig(service, schema, "localhost", settings.RuntimePasswords[schema], Path.Combine(directory, "certificates"), port, false));
-            WriteJson(Path.Combine(directory, $"{service}.container.json"), RuntimeConfig(service, schema, "postgres", settings.RuntimePasswords[schema], "/run/lab", 8443, true));
+            WriteJson(Path.Combine(directory, $"{service}.host.json"), RuntimeConfig(service, schema, "localhost", settings.RuntimePasswords[schema], Path.Combine(directory, "certificates"), port, false, EnsureCursorKey(directory)));
+            WriteJson(Path.Combine(directory, $"{service}.container.json"), RuntimeConfig(service, schema, "postgres", settings.RuntimePasswords[schema], "/run/lab", 8443, true, EnsureCursorKey(directory)));
         }
         Console.WriteLine("Runtime configuration refreshed; certificates, passwords, and database data retained.");
+    }
+    private static string EnsureCursorKey(string directory)
+    {
+        var path = Path.Combine(directory, "booking-cursor.key");
+        if (!File.Exists(path)) File.WriteAllText(path, Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+        return File.ReadAllText(path);
     }
     private static void WriteJson(string path, object value) => File.WriteAllText(path, JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }));
     private static void EnsureReservationsKey(string certificates)

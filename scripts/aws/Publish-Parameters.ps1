@@ -13,6 +13,7 @@ if ($Execute) { Assert-Identity $session; Assert-Confirmation $session $ConfirmS
 foreach($service in $ServiceNames) {
     foreach($entry in $session.secret_arns[$service].GetEnumerator()) {
         $value= switch($entry.Key) {
+            'BookingProjection__CursorKey' { Get-Content (Join-Path $privateRoot 'booking-cursor.key') -Raw }
             'ConnectionStrings__Runtime' { $schema=if($service -eq 'gateway'){'identity'}else{$service}; $settings.RuntimeConnections[$schema] }
             'LAB_TLS_CERT_PEM' { Get-Content (Join-Path $certs "$service.crt") -Raw }
             'LAB_TLS_KEY_PEM' { Get-Content (Join-Path $certs "$service.key") -Raw }

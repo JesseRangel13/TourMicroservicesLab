@@ -163,6 +163,7 @@ circuit isolation remains LAB-007. No learning topic is automatically marked mas
 
 ## LAB-008: infrastructure boundaries and runtime security
 
+
 | Actual paths | Applied topics / exercise |
 |---|---|
 | `src/Shared.Infrastructure/RuntimeSecretFiles.cs`, `RuntimeDatabaseOptions.cs`, `tests/Lab.Tests/RuntimeSecretFilesTests.cs` | Nullable optional runtime adapter, finite concrete file mapping, deterministic disposal, Linux permissions, TLS trust and Options validation. Explain why public OS roots and the private API CA both matter. |
@@ -190,3 +191,16 @@ No topic is marked mastered by these artifacts. Cloud IAM, Neon role denials and
 3. **What is the difference between health and diagnostics?** Liveness measures process availability without dependencies; readiness verifies the owned database on demand; diagnostics explains current work/worker observations through protected bounded APIs. Neither requires all downstream services.
 4. **How do you keep telemetry useful and private?** Explicit safe identifier scopes, disabled sensitive EF/header/body logging, allowlisted JSON spans, and bounded metric labels. Business history remains a persisted queryable domain record; traces/logs are diagnostic evidence.
 5. **Why no interface for every new class?** The quote client and transport are replaceable boundaries. A concrete breaker, worker-status store and SQL operations helper implement simple plumbing. EF models stay owned; no generic repository, reflection dispatch or new architecture layers were needed.
+
+## EXT-001/002: object storage and eventually consistent reads
+
+See docs/extension-study-guide.md for exercises and actual flow diagrams. Applied examples:
+
+- `src/Catalog.Api/Images/ValidatedImage.cs`: actual-content validation, bounded streams, cancellation and disposal.
+- `src/Catalog.Api/Images/TourImages.cs`: SQL intents, leases, concurrency fences and cross-system recovery.
+- `src/Reservations.Api/Bookings/BookingStore.cs`: SDK boundary, atomic conditions, owner-keyed queries and encrypted cursors.
+- `src/Reservations.Api/Persistence/ReservationsDb.cs`: same-transaction Outbox and monotonic versions.
+- `src/Reservations.Api/Bookings/BookingProjection.cs`: scoped work, no premature Inbox gate and bounded rebuild.
+- `src/Gateway.Web/Components/Catalog/TourImages.razor`, `Components/Pages/MyBookings.razor`: authenticated clients, cancellation, eventual consistency and unavailable states.
+
+Integration evidence uses real PostgreSQL and local emulators; no topic is automatically marked mastered.

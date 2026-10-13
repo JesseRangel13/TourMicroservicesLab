@@ -1,0 +1,37 @@
+@page "/my-bookings"
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits Gateway.Web.Catalog.CatalogComponent
+@inject Gateway.Web.Business.BusinessClient Business
+@using Shared.Contracts
+
+<h1>My bookings</h1>
+<p>Eventually consistent DynamoDB projection. Updated timestamps do not prove an authoritative status. Open reservation details for the current timeline and cancellation rules.</p>
+@if (Error is not null) { <p role="alert">Dashboard unavailable: @Error. Authoritative <a href="/reservations">reservations</a> remain available.</p> }
+@if (Busy) { <p role="status">Loading…</p> }
+@foreach (var item in result?.Items ?? []) {
+    <article>
+        <h2>@item.TourName</h2>
+        <p>@item.StartsAtUtc.ToString("u") — @item.Participants participants — @((item.AmountMinor / 100m).ToString("0.00")) @item.Currency</p>
+        <p>Projected status: @item.Status; version @item.Version; updated @item.UpdatedAtUtc.ToString("u")</p>
+        <a href="@($"/reservations/{item.ReservationId}")">Authoritative details and timeline</a>
+    </article>
+}
+<button disabled="@Busy" @onclick="Refresh">Refresh from beginning</button>
+<button disabled="@(Busy || result?.Cursor is null)" @onclick="Next">Next page</button>
+<AuthorizeView Roles="Admin">
+    <p>Recovery republishes a bounded batch from Reservations PostgreSQL; it does not delete the DynamoDB table.</p>
+    <button disabled="@(Busy || rebuilt is not null && after is null)" @onclick="Rebuild">Rebuild next batch</button>
+    <button disabled="@Busy" @onclick="RestartRebuild">Start a new rebuild pass</button>
+    @if (rebuilt is not null) { <p>Published @rebuilt.Published snapshots. @(rebuilt.AfterId is null ? "Rebuild finished." : "More batches remain.")</p> }
+</AuthorizeView>
+@code {
+    private BookingPage? result;
+    private RebuildBookingsResult? rebuilt;
+    private Guid? after;
+    protected override Task OnInitializedAsync() => Refresh();
+    private Task Refresh() => RunAsync(async ct => result = await Business.BookingsAsync(null, ct));
+    private Task Next() => RunAsync(async ct => result = await Business.BookingsAsync(result?.Cursor, ct));
+    private Task Rebuild() => RunAsync(async ct => { rebuilt = await Business.RebuildBookingsAsync(after, ct); after = rebuilt.AfterId; });
+    private Task RestartRebuild() { after = null; rebuilt = null; return Rebuild(); }
+}
